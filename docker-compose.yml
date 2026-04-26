@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  healthteam-web:
+    build: .
+    container_name: healthteam-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - DATABASE_URL=file:/app/data/dev.db
+    volumes:
+      # Persist SQLite DB outside the container — survives rebuilds
+      # Maps to /app/data/ to avoid overwriting /app/prisma/ schema files
+      - ./data/db:/app/data

@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-health-50: #f0fdf4;
+  --color-health-100: #dcfce7;
+  --color-health-200: #bbf7d0;
+  --color-health-300: #86efac;
+  --color-health-400: #4ade80;
+  --color-health-500: #22c55e;
+  --color-health-600: #16a34a;
+  --color-health-700: #15803d;
+  --color-health-800: #166534;
+  --color-health-900: #14532d;
+  --color-health-950: #052e16;
+
+  --color-base: #f9fafb;
+  --color-base-dark: #09090b;
+
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  /* Liquid glass — solid fallback on mobile, blur on desktop for performance */
+  .liquid-glass {
+    @apply bg-white/90 border border-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_-10px_rgba(0,0,0,0.05)];
+  }
+  .liquid-glass-dark {
+    @apply bg-zinc-900/90 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_32px_-10px_rgba(0,0,0,0.3)];
+  }
+  @media (min-width: 768px) {
+    .liquid-glass {
+      @apply bg-white/70 backdrop-blur-xl;
+    }
+    .liquid-glass-dark {
+      @apply bg-zinc-900/60 backdrop-blur-xl;
+    }
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* No scrollbar — for horizontal scroll areas */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Safe area bottom padding */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+:root {
+  --background: var(--color-base);
+  --foreground: #18181b;
+}
+
+.dark {
+  --background: var(--color-base-dark);
+  --foreground: #fafafa;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
+}
+
+/* Scrollbar — hidden on mobile, minimal on desktop */
+@media (max-width: 767px) {
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}
+@media (min-width: 768px) {
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
+  .dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+}
+
+/* Reduce motion for users who prefer it & mobile perf */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

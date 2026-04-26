@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  name      String
+  avatarUrl String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trainingStack TrainingStack?
+  conversations Conversation[]
+  deliberations Deliberation[]
+}
+
+model TrainingStack {
+  id              String   @id @default(cuid())
+  profileId       String   @unique
+  goal            String   // 'hypertrophy', 'conditioning', 'recomp'
+  primarySport    String   // e.g., 'MMA', 'Powerlifting'
+  secondarySport  String? 
+  height          Float
+  weight          Float
+  healthConditions String?
+  trainingContext  String?  // Free-text personal training situation
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  profileId   String
+  specialist  String   // 'trainer', 'nutritionist', 'endocrinologist'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile     Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@unique([profileId, specialist]) // Only one active thread per specialist per user
+}
+
+model Deliberation {
+  id        String    @id @default(cuid())
+  topic     String
+  profileId String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  messages  Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  deliberationId String?
+  role           String       // 'user' or 'assistant'
+  content        String
+  isCascade      Boolean      @default(false) // Used for Round Table multi-agent signals
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deliberation   Deliberation? @relation(fields: [deliberationId], references: [id])
+}

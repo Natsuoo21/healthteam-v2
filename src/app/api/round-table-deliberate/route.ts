@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { openai } from '@ai-sdk/openai';
 import { generateText, streamText } from 'ai';
 import { prisma } from '@/lib/prisma';
 
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         send({ phase: 'nutri', status: 'thinking' });
 
         const { text: phase1Text } = await withRateLimit(() => generateText({
-          model: google('gemini-flash-latest'),
+          model: openai('gpt-4o-mini'),
           system: coachNutriPrompt(stack, profileName),
           prompt: `Elabore a deliberação completa para este caso:\n\n${topic}`,
         }));
@@ -135,14 +135,7 @@ export async function POST(req: Request) {
         send({ phase: 'coach', status: 'done', content: coachContent });
         send({ phase: 'nutri', status: 'done', content: nutriContent });
 
-        // Gemini 2.5 Flash free tier: retry window is 25s per API error response.
-        // Stream countdown to UI so user knows the pipeline is not stuck.
-        const WAIT_SECONDS = 35;
-        send({ phase: 'waiting', seconds: WAIT_SECONDS });
-        for (let i = WAIT_SECONDS; i > 0; i--) {
-          await new Promise(r => setTimeout(r, 1000));
-          send({ phase: 'waiting', seconds: i - 1 });
-        }
+        // No artificial wait needed with OpenAI (was required for Gemini free tier rate limits)
 
         // ──────────────────────────────────────────────────
         // CALL 2: Dr. Evans + Synthesis (streaming)
@@ -151,7 +144,7 @@ export async function POST(req: Request) {
         send({ phase: 'synthesis', status: 'pending' });
 
         const synthStreamResult = await withRateLimit(() => streamText({
-          model: google('gemini-flash-latest'),
+          model: openai('gpt-4o-mini'),
           system: evansSynthesisPrompt(stack, profileName, phase1Text),
           prompt: `Audite o protocolo e sintetize o documento final para:\n\n${topic}`,
         }));

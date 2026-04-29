@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { prisma } from "@/lib/prisma";
 
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
   } catch { /* non-blocking */ }
 
   const streamResult = streamText({
-    model: google('gemini-flash-latest'),
+    model: openai('gpt-4o-mini'),
     system: systemPrompt,
     messages: modelMessages,
     onFinish: async ({ text }) => {

@@ -27,14 +27,14 @@
     @apply bg-white/90 border border-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_-10px_rgba(0,0,0,0.05)];
   }
   .liquid-glass-dark {
-    @apply bg-zinc-900 border border-zinc-700/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_32px_-10px_rgba(0,0,0,0.4)];
+    @apply bg-zinc-950 border border-zinc-800 shadow-[0_8px_32px_-10px_rgba(0,0,0,0.5)];
   }
   @media (min-width: 768px) {
     .liquid-glass {
       @apply bg-white/70 backdrop-blur-xl;
     }
     .liquid-glass-dark {
-      @apply bg-zinc-900/95 backdrop-blur-xl;
+      @apply bg-zinc-950 backdrop-blur-xl;
     }
   }
 

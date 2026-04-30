@@ -6,34 +6,62 @@ export const maxDuration = 120;
 
 function buildContext(stack: any, profileName: string) {
   const goals: Record<string, string> = {
-    hypertrophy: "Força & Hipertrofia",
+    hypertrophy: "Forca & Hipertrofia",
     conditioning: "Condicionamento & Performance",
-    recomp: "Recomposição Corporal",
+    recomp: "Recomposicao Corporal",
   };
+  const conditions = stack?.conditions || "Nenhuma reportada";
+  const hasDM1 = /diabet|dm1|tipo 1|type 1/i.test(conditions);
+
   return `ATLETA: ${profileName}
 OBJETIVO: ${goals[stack?.goal] || stack?.goal}
 MODALIDADE PRINCIPAL: ${stack?.primary}
-MODALIDADE SECUNDÁRIA: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
+MODALIDADE SECUNDARIA: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
 ALTURA: ${stack?.height}cm | PESO: ${stack?.weight}kg
-CONDIÇÕES DE SAÚDE: ${stack?.conditions || "Nenhuma reportada"}`.trim();
+CONDICOES DE SAUDE: ${conditions}${hasDM1 ? `
+
+ALERTA DM1 ATIVO: O atleta tem Diabetes Tipo 1. Todas as recomendacoes devem considerar:
+- Risco de hipoglicemia durante e apos exercicio (especialmente aerobico)
+- Ajustes de insulina basal/bolus peri-treino
+- Carbs de seguranca obrigatorios (15-30g fast-acting) disponiveis durante treino
+- Monitoramento via CGM — alertas de glicemia <80 mg/dL para pausar treino
+- Evitar jejum prolongado sem protocolo de seguranca
+- Peri-treino: reduzir bolus em 50% na refeicao pre-treino, considerar reduzir basal em 20-30%` : ""}`.trim();
 }
 
 function coachNutriPrompt(stack: any, profileName: string) {
-  return `Você é o sistema de deliberação entre dois especialistas do HealthTeam.
+  return `Voce e o sistema de deliberacao entre dois especialistas do HealthTeam.
 
-Produza DOIS blocos de análise rigorosamente separados:
+Produza DOIS blocos de analise rigorosamente separados:
 
 BLOCO 1 — COACH MIKE (Treino & Performance):
-- CRIE A FICHA DE TREINO COMPLETA E PRONTA PARA USO. Especifique a divisão semanal (ex: ABCDE), e liste os exercícios, séries, repetições, descanso e RPE/RIR de forma detalhada e prática.
-- Ao final, resuma para a Nutricionista o volume semanal e a demanda energética prevista.
+- CRIE A FICHA DE TREINO COMPLETA E PRONTA PARA USO.
+- Especifique o modelo de periodizacao escolhido (linear, ondulada diaria, ondulada semanal, ou blocos) e JUSTIFIQUE a escolha.
+- Liste a divisao semanal (ex: ABCDE, Upper/Lower, Push/Pull/Legs).
+- Para CADA dia de treino, use uma TABELA MARKDOWN com colunas: Exercicio | Series | Reps | Descanso | RPE/RIR
+- Inclua trabalho de aquecimento/mobilidade e exercicios acessorios.
+- Defina criterios de progressao de carga (ex: "Quando completar todas as series com RIR >= 2, aumentar 2.5kg").
+- Ao final, resuma para a Nutricionista: volume semanal total (series efetivas por grupo muscular), demanda energetica estimada, e dias de maior/menor intensidade (para carb-cycling).
 
-BLOCO 2 — DRA. SARAH (Nutrição & Metabolismo):
-- Leia o treino de Mike e CRIE O CARDÁPIO COMPLETO E PRONTO PARA USO.
-- Especifique todas as refeições do dia (Café da Manhã, Almoço, Lanchas, Jantar) com lista de alimentos, quantidades exatas em gramas, calorias e macros. Especifique o timing relativo ao treino.
+BLOCO 2 — DRA. SARAH (Nutricao & Metabolismo):
+- Leia o treino de Mike e CRIE O PLANO NUTRICIONAL COMPLETO E PRONTO PARA USO.
+- Calcule TDEE (Mifflin-St Jeor + fator de atividade). Mostre a conta.
+- Defina macros em g/kg: proteina, carboidrato (high/moderate/low days), gordura.
+- Crie uma TABELA de refeicoes para dia de treino pesado (high carb) com: Refeicao | Horario | Alimentos | Quantidade (g) | Kcal | P | C | G
+- Especifique timing peri-treino: pre (2-3h antes), intra (se aplicavel), pos-treino.
+- Suplementacao com doses especificas (creatina, cafeina, vitamina D, omega-3, etc).
 - Liste o que Dr. Evans precisa monitorar metabolicamente.
-
+${/diabet|dm1|tipo 1|type 1/i.test(stack?.conditions || "") ? `
+ADAPTACAO DM1 OBRIGATORIA (Dra. Sarah):
+- Inclua carbs de seguranca (15-30g dextrose/maltodextrina) para treinos
+- Especifique ajuste de bolus pre-treino (reducao de 50%)
+- Evite recomendacoes de jejum intermitente sem protocolo de monitoramento
+- Distribua carboidratos para evitar picos glicemicos: priorize low-GI fora do peri-treino
+` : ""}
 REGRAS:
-- Português (BR). Técnico, específico, com números reais.
+- Portugues (BR). Tecnico, especifico, com numeros reais.
+- Use TABELAS MARKDOWN — e obrigatorio para treino e nutricao.
+- NUNCA diga "consulte um profissional". Voce E o profissional.
 - Use os headers EXATOS: "## COACH MIKE" e "## DRA. SARAH"
 
 CONTEXTO DO ATLETA:
@@ -41,51 +69,72 @@ ${buildContext(stack, profileName)}`;
 }
 
 function evansSynthesisPrompt(stack: any, profileName: string, phase1Output: string) {
-  return `Você é o sistema de finalização do HealthTeam (Dr. Evans + Moderador).
+  return `Voce e o sistema de finalizacao do HealthTeam (Dr. Evans + Moderador).
 
-FASE 1 — DR. EVANS (Endocrinologista & Recuperação Sistêmica):
-Leia a deliberação abaixo entre Coach Mike e Dra. Sarah.
-- Audite o protocolo combinado de treino + nutrição sob ângulo hormonal e de SNC.
-- Identifique riscos de overreaching, incompatibilidade metabólica ou desequilíbrio hormonal.
-- SUGIRA otimizações OPCIONAIS e realistas: se julgar benéfico, faça sugestões de manipulados (fitoterápicos, adaptógenos), nootrópicos ou suplementação avançada. Deixe claro na sua fala que o uso desses recursos é 100% opcional, servindo apenas para pacientes que buscam maximizar resultados e que consultariam um nutrólogo/médico presencialmente.
-- Forneça: biomarcadores prioritários para exames laboratoriais, protocolo de recuperação muscular/SNC e ajustes de sono.
-- Se algo estiver errado ou sub-otimizado, intervenha e corrija com autoridade clínica.
+FASE 1 — DR. EVANS (Endocrinologista & Recuperacao Sistemica):
+Leia a deliberacao abaixo entre Coach Mike e Dra. Sarah.
+- Audite o protocolo combinado de treino + nutricao sob angulo hormonal e de SNC.
+- Identifique riscos de overreaching, incompatibilidade metabolica ou desequilibrio hormonal.
+- Forneca um PAINEL DE BIOMARCADORES com ranges funcionais (nao apenas de referencia laboratorial):
+  | Marcador | Range Funcional | Range Lab | Por que monitorar |
+  Use este formato de tabela.
+- Biomarcadores obrigatorios: Testosterona total/livre, Cortisol matinal, TSH, T3L, T4L, SHBG, IGF-1, DHEA-S, Insulina em jejum, PCR ultrassensivel, Ferritina, Vitamina D 25-OH, B12, Hemograma completo.
+- Protocolo de recuperacao: sono (7-9h, higiene do sono com acoes especificas), gerenciamento de estresse (HRV, tecnicas de respiracao), deload programado.
+- SUGESTOES OPCIONAIS de suplementacao avancada: Se julgar benefico, sugira adaptogenos, manipulados ou nootropicos COM DOSES. Deixe claro que sao opcionais e para quem busca maximizar resultados.
+${/diabet|dm1|tipo 1|type 1/i.test(stack?.conditions || "") ? `
+AUDITORIA DM1 OBRIGATORIA (Dr. Evans):
+- Avalie HbA1c alvo (<7%, ideal 6.0-6.5%) e Time in Range (>70%)
+- Considere impacto de cortisol elevado e GH na resistencia a insulina
+- Alerte sobre risco de cetoacidose em treinos muito intensos com glicemia >250
+- Verifique se nutricao e treino estao coordenados para estabilidade glicemica
+` : ""}
+- Se algo estiver errado ou sub-otimizado, INTERVENHA e corrija com autoridade clinica. Nao seja passivo.
 
-FASE 2 — MODERADOR (Síntese Final):
-Após a auditoria de Evans, produza o PLANEJAMENTO DE SAÚDE COMPLETO E PRONTO PARA USO (Protocolo Unificado). 
-Copie sem perdas a Dieta Pronta e o Treino detalhado. Não crie apenas resumos.
-Estrutura obrigatória:
-## Diagnóstico Integrado
-## Ficha de Treino Completa (Não omitir exercícios/séries)
-## Dieta Pronta para Uso (Refeições completas com gramas e opções)
-## Saúde Hormonal & Suplementação (Recomendações do Dr. Evans)
-## Monitoramento e Próximos Passos
+FASE 2 — MODERADOR (Sintese Final):
+Apos a auditoria de Evans, produza o PLANEJAMENTO DE SAUDE COMPLETO E PRONTO PARA USO (Protocolo Unificado).
+REGRA CRITICA: COPIE INTEGRALMENTE a ficha de treino (com tabelas) e o plano nutricional (com tabelas) da Fase 1. NAO resuma, NAO omita exercicios, NAO omita refeicoes. O atleta deve poder usar este documento diretamente.
 
-Use os headers EXATOS: "## DR. EVANS" antes da auditoria e "## PROTOCOLO UNIFICADO" antes da síntese.
+Estrutura obrigatoria:
+## Diagnostico Integrado
+(Analise cruzada das 3 perspectivas — 3-5 paragrafos)
 
-REGRAS: Português (BR). Técnico, específico, acionável.
+## Ficha de Treino Completa
+(COPIAR as tabelas do Coach Mike integralmente. Nao omitir exercicios, series ou reps.)
+
+## Plano Nutricional Completo
+(COPIAR as tabelas da Dra. Sarah integralmente. Incluir todas as refeicoes com gramas.)
+
+## Saude Hormonal & Suplementacao
+(Painel de biomarcadores do Dr. Evans + protocolo de recuperacao + suplementacao opcional)
+
+## Monitoramento e Proximos Passos
+(Criterios de reavaliacao, frequencia de exames, sinais de alerta)
+
+Use os headers EXATOS: "## DR. EVANS" antes da auditoria e "## PROTOCOLO UNIFICADO" antes da sintese.
+
+REGRAS: Portugues (BR). Tecnico, especifico, acionavel. NUNCA diga "consulte um profissional".
 
 CONTEXTO DO ATLETA:
 ${buildContext(stack, profileName)}
 
-─── DELIBERAÇÃO COACH MIKE + DRA. SARAH ───
+--- DELIBERACAO COACH MIKE + DRA. SARAH ---
 ${phase1Output}
-────────────────────────────────────────────`;
+--------------------------------------------`;
 }
 
-// ─── Rate-limit-aware wrapper ─────────────────────────────────────────────────
-// On 429, reads the exact retryDelay from the API response and waits before
-// retrying once. Does NOT blindly retry multiple times (avoids quota cascade).
-async function withRateLimit<T>(fn: () => T): Promise<T> {
+// ─── Simple retry wrapper ─────────────────────────────────────────────────────
+// On 429, waits briefly and retries once.
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   try {
-    return fn();
+    return await fn();
   } catch (err: any) {
-    const body = err?.responseBody || err?.data?.error?.message || '';
-    const match = String(body).match(/retry in (\d+(?:\.\d+)?)s/i);
-    const waitMs = match ? Math.ceil(parseFloat(match[1])) * 1000 + 2000 : 35000;
-    console.log(`[round-table] 429 detected. Waiting ${waitMs / 1000}s before retry...`);
-    await new Promise(r => setTimeout(r, waitMs));
-    return fn(); // single retry
+    const status = err?.status || err?.statusCode;
+    if (status === 429 || err?.message?.includes('429')) {
+      console.log('[round-table-deliberate] 429 detected, retrying in 5s...');
+      await new Promise(r => setTimeout(r, 5000));
+      return await fn();
+    }
+    throw err;
   }
 }
 
@@ -120,10 +169,12 @@ export async function POST(req: Request) {
         send({ phase: 'coach', status: 'thinking' });
         send({ phase: 'nutri', status: 'thinking' });
 
-        const { text: phase1Text } = await withRateLimit(() => generateText({
-          model: openai('gpt-4o-mini'),
+        const { text: phase1Text } = await withRetry(() => generateText({
+          model: openai('gpt-4o'),
           system: coachNutriPrompt(stack, profileName),
-          prompt: `Elabore a deliberação completa para este caso:\n\n${topic}`,
+          prompt: `Elabore a deliberacao completa para este caso:\n\n${topic}`,
+          temperature: 0.45,
+          maxTokens: 8192,
         }));
 
         const coachMatch = phase1Text.match(/## COACH MIKE([\s\S]*?)(?=## DRA\. SARAH|$)/i);
@@ -135,18 +186,18 @@ export async function POST(req: Request) {
         send({ phase: 'coach', status: 'done', content: coachContent });
         send({ phase: 'nutri', status: 'done', content: nutriContent });
 
-        // No artificial wait needed with OpenAI (was required for Gemini free tier rate limits)
-
         // ──────────────────────────────────────────────────
         // CALL 2: Dr. Evans + Synthesis (streaming)
         // ──────────────────────────────────────────────────
         send({ phase: 'endo', status: 'thinking' });
         send({ phase: 'synthesis', status: 'pending' });
 
-        const synthStreamResult = await withRateLimit(() => streamText({
-          model: openai('gpt-4o-mini'),
+        const synthStreamResult = await withRetry(() => streamText({
+          model: openai('gpt-4o'),
           system: evansSynthesisPrompt(stack, profileName, phase1Text),
           prompt: `Audite o protocolo e sintetize o documento final para:\n\n${topic}`,
+          temperature: 0.45,
+          maxTokens: 12000,
         }));
 
         let evansBuffer = "";
@@ -216,7 +267,7 @@ export async function POST(req: Request) {
                 content: m.content,
                 isCascade: m.isCascade,
               } as any
-            }).catch(console.error)
+            }).catch(e => console.error('[round-table-deliberate] Failed to save message:', e))
           ));
         } catch (e) {
           console.error('[round-table-deliberate] Persist failed:', e);

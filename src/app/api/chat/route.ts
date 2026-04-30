@@ -88,7 +88,7 @@ export async function POST(req: Request) {
           content: userText,
           isCascade: Boolean(isCascade)
         } as any
-      }).catch(() => {}) // Fire-and-forget, don't block stream
+      }).catch(e => console.error('[chat] Failed to save user message:', e))
     : Promise.resolve();
 
   const systemPrompt = getSystemPrompt(specialist, stack);
@@ -98,6 +98,8 @@ export async function POST(req: Request) {
     model: openai('gpt-4o-mini'),
     system: systemPrompt,
     messages: modelMessages,
+    temperature: 0.4,
+    maxTokens: 4096,
     onFinish: async ({ text }) => {
       await Promise.all([
         saveUserMsg, // Ensure user msg is saved too

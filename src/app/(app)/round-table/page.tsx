@@ -14,7 +14,7 @@ const EXPERTS = [
   { id: "endo",   name: "Dr. Evans",   avatar: "/avatars/endocrinologist.png", role: "Hormônios & Recuperação" },
 ];
 
-type Phase = 'idle' | 'coach' | 'nutri' | 'endo' | 'waiting' | 'synthesis' | 'done' | 'error';
+type Phase = 'idle' | 'coach' | 'nutri' | 'endo' | 'synthesis' | 'done' | 'error';
 
 interface State {
   phase: Phase;
@@ -23,7 +23,6 @@ interface State {
   endo: string;
   synthesis: string;
   error?: string;
-  waitingSeconds?: number;
 }
 
 const GOAL_LABEL: Record<string, string> = {
@@ -180,9 +179,6 @@ function RoundTableInner() {
               if (event.status === 'thinking') setState(s => ({ ...s, phase: 'endo' }));
               if (event.status === 'done') setState(s => ({ ...s, endo: event.content, phase: 'synthesis' }));
             }
-            if (event.phase === 'waiting') {
-              setState(s => ({ ...s, phase: 'waiting', waitingSeconds: event.seconds }));
-            }
             if (event.phase === 'synthesis') {
               if (event.status === 'streaming') setState(s => ({ ...s, phase: 'synthesis' }));
               if (event.chunk) setState(s => ({ ...s, synthesis: s.synthesis + event.chunk }));
@@ -214,7 +210,7 @@ function RoundTableInner() {
     }
   }, [autostart, activeProfileId, stack]);
 
-  const phaseIndex: Record<Phase, number> = { idle: -1, coach: 0, nutri: 1, endo: 2, waiting: 2, synthesis: 3, done: 3, error: -1 };
+  const phaseIndex: Record<Phase, number> = { idle: -1, coach: 0, nutri: 1, endo: 2, synthesis: 3, done: 3, error: -1 };
   const currentPhaseIdx = phaseIndex[state.phase];
 
 
@@ -397,28 +393,6 @@ function RoundTableInner() {
                 })}
               </div>
 
-              {/* Rate limit buffer countdown */}
-              {state.phase === 'waiting' && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="mx-4 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1.5">
-                      Preparando Dr. Evans para revisar...
-                    </p>
-                    <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                      <motion.div className="h-full bg-health-500 rounded-full"
-                        initial={{ width: "100%" }}
-                        animate={{ width: `${((state.waitingSeconds ?? 35) / 35) * 100}%` }}
-                        transition={{ duration: 1, ease: "linear" }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-zinc-400 tabular-nums shrink-0">
-                    {state.waitingSeconds ?? 0}s
-                  </span>
-                </motion.div>
-              )}
-
               {/* Final Protocol — Synthesis */}
               {(state.phase === 'synthesis' || state.phase === 'done') && state.synthesis && (
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
@@ -461,10 +435,10 @@ function RoundTableInner() {
                   className="p-6 rounded-3xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 space-y-4">
                   <div>
                     <p className="text-sm font-bold text-amber-800 dark:text-amber-400 mb-1">
-                      ⏱️ Limite de requisições da API atingido
+                      ⏱️ Erro na API
                     </p>
                     <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed">
-                      O plano gratuito do Gemini permite 20 req/min. A Mesa Redonda usa 2 chamadas sequenciais.
+                      Ocorreu um erro ao processar sua solicitação. A Mesa Redonda usa 2 chamadas sequenciais.
                       {retryCountdown > 0
                         ? ` Aguarde ${retryCountdown}s para tentar novamente.`
                         : " Clique para tentar novamente."}

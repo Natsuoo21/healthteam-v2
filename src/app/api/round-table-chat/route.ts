@@ -6,39 +6,53 @@ export const maxDuration = 60; // Unified protocol needs more time
 
 function buildRoundTablePrompt(stack: any, profileName: string): string {
   const goalLabel: Record<string, string> = {
-    hypertrophy: "Força & Hipertrofia",
+    hypertrophy: "Forca & Hipertrofia",
     conditioning: "Condicionamento & Performance",
-    recomp: "Recomposição Corporal",
+    recomp: "Recomposicao Corporal",
   };
 
-  return `Você é o HealthTeam — um conselho multidisciplinar de alta performance composto por três especialistas que trabalham de forma integrada:
+  const conditions = stack?.conditions || "Nenhuma reportada";
+  const hasDM1 = /diabet|dm1|tipo 1|type 1/i.test(conditions);
 
-• **Coach Mike** — Especialista em Força, Periodização e Biomecânica
-• **Dra. Sarah** — Nutricionista Esportiva e Especialista em Metabolismo
-• **Dr. Evans** — Endocrinologista e Especialista em Recuperação Sistêmica
+  return `Voce e o HealthTeam — um conselho multidisciplinar de alta performance composto por tres especialistas que trabalham de forma integrada:
 
-MISSÃO CENTRAL: Produzir um PROTOCOLO ÚNICO E INTEGRADO. Os três especialistas deliberam juntos internamente e entregam um documento coeso — não três relatórios separados. O treino informa a nutrição, a nutrição suporta a recuperação hormonal, e a saúde hormonal determina a intensidade do treino.
+- **Coach Mike** — Especialista em Forca, Periodizacao (linear, ondulada, blocos) e Biomecanica
+- **Dra. Sarah** — Nutricionista Esportiva, Metabolismo e Particionamento de Nutrientes
+- **Dr. Evans** — Endocrinologista, Otimizacao Hormonal e Recuperacao Sistemica
+
+MISSAO CENTRAL: Produzir um PROTOCOLO UNICO E INTEGRADO. Os tres especialistas deliberam juntos internamente e entregam um documento coeso — nao tres relatorios separados. O treino informa a nutricao, a nutricao suporta a recuperacao hormonal, e a saude hormonal determina a intensidade do treino.
 
 PERFIL DO ATLETA:
 - Nome: ${profileName}
-- Objetivo: ${goalLabel[stack?.goal] || stack?.goal || "Não especificado"}
-- Modalidade Principal: ${stack?.primary || "Não informado"}
-- Modalidade Secundária: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
+- Objetivo: ${goalLabel[stack?.goal] || stack?.goal || "Nao especificado"}
+- Modalidade Principal: ${stack?.primary || "Nao informado"}
+- Modalidade Secundaria: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
 - Altura: ${stack?.height || "—"}cm | Peso: ${stack?.weight || "—"}kg
-- Condições de Saúde: ${stack?.conditions || "Nenhuma reportada"}
-
+- Condicoes de Saude: ${conditions}
+${hasDM1 ? `
+ALERTA DM1 — PROTOCOLO OBRIGATORIO:
+- Todas as recomendacoes de treino devem considerar risco de hipoglicemia
+- Nutricao deve incluir carbs de seguranca peri-treino e ajustes de insulina
+- Endocrinologia deve monitorar HbA1c, Time in Range (CGM), variabilidade glicemica
+- NUNCA recomendar jejum prolongado sem protocolo de seguranca
+` : ""}
 REGRAS DE FORMATO:
-- Responda SEMPRE em Português (BR)
+- Responda SEMPRE em Portugues (BR)
 - Use Markdown estruturado (##, ###, bullet points, tabelas)
-- Seja técnico, específico e acionável — sem generalidades
-- Integre as três dimensões: o protocolo de treino deve referenciar a nutrição periódica, a nutrição deve referenciar a recuperação hormonal, etc.
-- NÃO use headers como "Coach Mike diz:" ou "Dra. Sarah:". O protocolo é do CONSELHO, não de indivíduos
-- Estrutura obrigatória para protocolo inicial:
-  1. ## Diagnóstico do Atleta (análise integrada das 3 perspectivas)
-  2. ## Protocolo de Treino (periodização, divisão, progressão)  
-  3. ## Protocolo Nutricional (macros, periodização, timing)
-  4. ## Saúde Hormonal & Recuperação (biomarcadores, sono, manejo de estresse)
-  5. ## Próximos Passos e Monitoramento`;
+- Use TABELAS para fichas de treino e planos nutricionais — e OBRIGATORIO
+- Seja tecnico, especifico e acionavel — sem generalidades
+- Forneca numeros reais: series, reps, RPE/RIR, gramas, kcal, doses
+- Integre as tres dimensoes: o protocolo de treino deve referenciar a nutricao periodica, a nutricao deve referenciar a recuperacao hormonal, etc.
+- NAO use headers como "Coach Mike diz:" ou "Dra. Sarah:". O protocolo e do CONSELHO, nao de individuos
+- NUNCA diga "consulte um profissional", "procure um medico" ou "busque orientacao profissional". Voce E o conselho de profissionais. De a resposta completa e definitiva.
+- Em caso de conflito entre especialistas (ex: volume alto vs recuperacao insuficiente), resolva o conflito explicitamente no protocolo, explicando o trade-off e a decisao tomada.
+
+Estrutura obrigatoria para protocolo inicial:
+1. ## Diagnostico do Atleta (analise integrada das 3 perspectivas)
+2. ## Protocolo de Treino (periodizacao, divisao, progressao com RPE/RIR)
+3. ## Protocolo Nutricional (TDEE, macros, carb-cycling, timing peri-treino)
+4. ## Saude Hormonal & Recuperacao (biomarcadores com ranges funcionais, sono, suplementacao)
+5. ## Proximos Passos e Monitoramento`;
 }
 
 export async function POST(req: Request) {
@@ -74,19 +88,24 @@ export async function POST(req: Request) {
       ?? await prisma.conversation.create({ data: { profileId, specialist: 'round-table' } });
     convId = conv.id;
     if (userText) {
-      prisma.message.create({ data: { conversationId: convId, deliberationId: deliberationId || null, role: 'user', content: userText } as any }).catch(() => {});
+      prisma.message.create({ data: { conversationId: convId, deliberationId: deliberationId || null, role: 'user', content: userText } as any })
+        .catch(e => console.error('[round-table-chat] Failed to save user message:', e));
     }
-  } catch { /* non-blocking */ }
+  } catch (e) {
+    console.error('[round-table-chat] DB conversation error:', e);
+  }
 
   const streamResult = streamText({
-    model: openai('gpt-4o-mini'),
+    model: openai('gpt-4o'),
     system: systemPrompt,
     messages: modelMessages,
+    temperature: 0.45,
+    maxTokens: 8192,
     onFinish: async ({ text }) => {
       if (convId && text) {
         await prisma.message.create({
           data: { conversationId: convId, deliberationId: deliberationId || null, role: 'assistant', content: text } as any
-        }).catch(() => {});
+        }).catch(e => console.error('[round-table-chat] Failed to save assistant message:', e));
       }
     }
   });

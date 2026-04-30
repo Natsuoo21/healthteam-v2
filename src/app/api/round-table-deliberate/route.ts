@@ -192,13 +192,13 @@ export async function POST(req: Request) {
         send({ phase: 'endo', status: 'thinking' });
         send({ phase: 'synthesis', status: 'pending' });
 
-        const synthStreamResult = await withRetry(() => streamText({
+        const synthStreamResult = streamText({
           model: openai('gpt-4o'),
           system: evansSynthesisPrompt(stack, profileName, phase1Text),
           prompt: `Audite o protocolo e sintetize o documento final para:\n\n${topic}`,
           temperature: 0.45,
           maxOutputTokens: 12000,
-        }));
+        });
 
         let evansBuffer = "";
         let inEvans = false;

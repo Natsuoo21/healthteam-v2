@@ -174,7 +174,7 @@ export async function POST(req: Request) {
           system: coachNutriPrompt(stack, profileName),
           prompt: `Elabore a deliberacao completa para este caso:\n\n${topic}`,
           temperature: 0.45,
-          maxTokens: 8192,
+          maxOutputTokens: 8192,
         }));
 
         const coachMatch = phase1Text.match(/## COACH MIKE([\s\S]*?)(?=## DRA\. SARAH|$)/i);
@@ -197,7 +197,7 @@ export async function POST(req: Request) {
           system: evansSynthesisPrompt(stack, profileName, phase1Text),
           prompt: `Audite o protocolo e sintetize o documento final para:\n\n${topic}`,
           temperature: 0.45,
-          maxTokens: 12000,
+          maxOutputTokens: 12000,
         }));
 
         let evansBuffer = "";

@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: modelMessages,
     temperature: 0.4,
-    maxTokens: 4096,
+    maxOutputTokens: 4096,
     onFinish: async ({ text }) => {
       await Promise.all([
         saveUserMsg, // Ensure user msg is saved too

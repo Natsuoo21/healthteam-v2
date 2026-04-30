@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: modelMessages,
     temperature: 0.45,
-    maxTokens: 8192,
+    maxOutputTokens: 8192,
     onFinish: async ({ text }) => {
       if (convId && text) {
         await prisma.message.create({

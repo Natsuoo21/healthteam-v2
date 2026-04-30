@@ -91,7 +91,30 @@ export async function POST(req: Request) {
       }).catch(e => console.error('[chat] Failed to save user message:', e))
     : Promise.resolve();
 
-  const systemPrompt = getSystemPrompt(specialist, stack);
+  // Fetch latest round-table synthesis to give specialist context
+  let roundTableContext = "";
+  try {
+    const rtConv = await prisma.conversation.findFirst({
+      where: { profileId, specialist: 'round-table' }
+    });
+    if (rtConv) {
+      const synthesis = await prisma.message.findFirst({
+        where: { conversationId: rtConv.id, role: 'assistant', isCascade: false },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (synthesis?.content) {
+        roundTableContext = `\n\n[CONTEXTO DA MESA REDONDA — ÚLTIMO PROTOCOLO INTEGRADO]
+O conselho multidisciplinar (Coach Mike, Dra. Sarah, Dr. Evans) já produziu o protocolo abaixo. Use-o como BASE para suas respostas. Quando o atleta perguntar algo, responda de forma consistente com este protocolo. Se precisar ajustar algo, explique por quê.
+
+${synthesis.content.slice(0, 6000)}
+[FIM DO CONTEXTO DA MESA REDONDA]`;
+      }
+    }
+  } catch (e) {
+    console.error('[chat] Failed to fetch round-table context:', e);
+  }
+
+  const systemPrompt = getSystemPrompt(specialist, stack) + roundTableContext;
 
   // Start stream immediately — DB write happens concurrently in background
   const streamResult = streamText({

@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const markdownComponents = {
   h1: ({ children }: { children?: React.ReactNode }) => <h1 className="text-xl md:text-2xl font-display font-bold text-zinc-900 dark:text-zinc-50 mb-4 md:mb-5 mt-6 md:mt-8 first:mt-0">{children}</h1>,
@@ -41,7 +42,7 @@ export const markdownComponents = {
 
 export default function MarkdownRenderer({ content }: { content: string }) {
   return (
-    <ReactMarkdown components={markdownComponents}>
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
       {content}
     </ReactMarkdown>
   );

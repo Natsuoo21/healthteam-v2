@@ -18,7 +18,7 @@ OBJETIVO: ${goals[stack?.goal] || stack?.goal}
 MODALIDADE PRINCIPAL: ${stack?.primary}
 MODALIDADE SECUNDARIA: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
 ALTURA: ${stack?.height}cm | PESO: ${stack?.weight}kg
-CONDICOES DE SAUDE: ${conditions}${hasDM1 ? `
+CONDICOES DE SAUDE: ${conditions}${stack?.trainingContext ? `\nCONTEXTO DE TREINO: ${stack.trainingContext}` : ""}${hasDM1 ? `
 
 ALERTA DM1 ATIVO: O atleta tem Diabetes Tipo 1. Todas as recomendacoes devem considerar:
 - Risco de hipoglicemia durante e apos exercicio (especialmente aerobico)

@@ -28,7 +28,7 @@ PERFIL DO ATLETA:
 - Modalidade Principal: ${stack?.primary || "Nao informado"}
 - Modalidade Secundaria: ${stack?.secondary && stack.secondary !== "Nenhum" ? stack.secondary : "Nenhuma"}
 - Altura: ${stack?.height || "—"}cm | Peso: ${stack?.weight || "—"}kg
-- Condicoes de Saude: ${conditions}
+- Condicoes de Saude: ${conditions}${stack?.trainingContext ? `\n- Contexto de Treino / Situacao Pessoal: ${stack.trainingContext}` : ""}
 ${hasDM1 ? `
 ALERTA DM1 — PROTOCOLO OBRIGATORIO:
 - Todas as recomendacoes de treino devem considerar risco de hipoglicemia

@@ -172,7 +172,7 @@ export default function ChatScreen() {
                     className={`px-4 py-3 md:px-5 md:py-4 text-sm leading-relaxed rounded-3xl ${
                       isUser
                         ? "bg-health-500 text-white rounded-br-sm shadow-md"
-                        : "liquid-glass dark:liquid-glass-dark text-zinc-800 dark:text-zinc-100 rounded-bl-sm"
+                        : "liquid-glass text-zinc-800 dark:text-zinc-100 rounded-bl-sm"
                     }`}
                   >
                     {isUser ? text : <MarkdownRenderer content={text} />}
@@ -232,7 +232,7 @@ export default function ChatScreen() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={`Mensagem para ${info.name}...`}
               enterKeyHint="send"
-              className="w-full liquid-glass dark:liquid-glass-dark rounded-full px-5 py-3.5 md:py-4 pr-14 outline-none text-sm text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-health-500/50 transition-shadow placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+              className="w-full liquid-glass rounded-full px-5 py-3.5 md:py-4 pr-14 outline-none text-sm text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-health-500/50 transition-shadow placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
             />
             <button
               type="submit"

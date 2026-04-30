@@ -22,19 +22,13 @@
 }
 
 @layer utilities {
-  /* Liquid glass — solid fallback on mobile, blur on desktop for performance */
+  /* Liquid glass — auto light/dark, solid on mobile, blur on desktop */
   .liquid-glass {
     @apply bg-white/90 border border-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_-10px_rgba(0,0,0,0.05)];
-  }
-  .liquid-glass-dark {
-    @apply bg-zinc-950 border border-zinc-800 shadow-[0_8px_32px_-10px_rgba(0,0,0,0.5)];
   }
   @media (min-width: 768px) {
     .liquid-glass {
       @apply bg-white/70 backdrop-blur-xl;
-    }
-    .liquid-glass-dark {
-      @apply bg-zinc-950 backdrop-blur-xl;
     }
   }
 
@@ -70,6 +64,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-overflow-scrolling: touch;
   touch-action: manipulation;
+}
+
+/* Dark mode override for liquid-glass — BLACK background, high specificity */
+.dark .liquid-glass,
+.dark .liquid-glass-dark {
+  background-color: #09090b !important;
+  border-color: #27272a !important;
+  box-shadow: 0 8px 32px -10px rgba(0,0,0,0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Scrollbar — hidden on mobile, minimal on desktop */

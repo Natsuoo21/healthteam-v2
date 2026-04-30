@@ -144,7 +144,7 @@ export default function Onboarding() {
               )}
 
               {step === 2 && (
-                <div className="liquid-glass dark:liquid-glass-dark p-5 md:p-8 rounded-2xl md:rounded-[2rem] flex flex-col gap-5 md:gap-6">
+                <div className="liquid-glass p-5 md:p-8 rounded-2xl md:rounded-[2rem] flex flex-col gap-5 md:gap-6">
                   <div>
                     <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
                       Modalidade Primária (Maior Foco)
@@ -194,7 +194,7 @@ export default function Onboarding() {
               )}
 
               {step === 3 && (
-                <div className="liquid-glass dark:liquid-glass-dark p-5 md:p-8 rounded-2xl md:rounded-[2rem] grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                <div className="liquid-glass p-5 md:p-8 rounded-2xl md:rounded-[2rem] grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
                   <div>
                     <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
                       Altura (CM)

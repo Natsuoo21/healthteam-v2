@@ -260,7 +260,7 @@ function RoundTableInner() {
                 <textarea rows={4} value={topic} onChange={e => setTopic(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runDeliberation(topic); }}
                   placeholder="Ex: Quero um protocolo completo para ganhar força mantendo condicionamento para MMA..."
-                  className="w-full liquid-glass dark:liquid-glass-dark rounded-2xl md:rounded-[2rem] p-4 md:p-6 pb-18 md:pb-20 outline-none text-sm text-zinc-900 dark:text-zinc-100 border-2 border-transparent focus:border-health-500/30 transition-all shadow-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 resize-none"
+                  className="w-full liquid-glass rounded-2xl md:rounded-[2rem] p-4 md:p-6 pb-18 md:pb-20 outline-none text-sm text-zinc-900 dark:text-zinc-100 border-2 border-transparent focus:border-health-500/30 transition-all shadow-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 resize-none"
                 />
                 <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-3">
                   <span className="hidden md:inline text-[10px] text-zinc-300 dark:text-zinc-600">⌘↵</span>
@@ -280,7 +280,7 @@ function RoundTableInner() {
                       return (
                         <button key={d.id}
                           onClick={() => hasSaved ? loadPastDeliberation(d) : setTopic(d.topic)}
-                          className="p-5 liquid-glass dark:liquid-glass-dark rounded-2xl text-left hover:shadow-md transition-all">
+                          className="p-5 liquid-glass rounded-2xl text-left hover:shadow-md transition-all">
                           <p className="text-xs font-medium mb-3 line-clamp-2 text-zinc-600 dark:text-zinc-400 leading-relaxed">{d.topic}</p>
                           <div className="flex items-center justify-between">
                             <div className="flex -space-x-1.5">

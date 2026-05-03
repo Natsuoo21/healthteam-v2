@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   healthteam-web:
     build: .
@@ -14,5 +12,4 @@ services:
       - DATABASE_URL=file:/app/data/dev.db
     volumes:
       # Persist SQLite DB outside the container — survives rebuilds
-      # Maps to /app/data/ to avoid overwriting /app/prisma/ schema files
       - ./data/db:/app/data

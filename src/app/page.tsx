@@ -63,7 +63,7 @@ export default function ProfileSelection() {
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
     const newProfile = {
       id, name: newName.trim(),
       avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(newName)}&backgroundColor=e5e7eb`

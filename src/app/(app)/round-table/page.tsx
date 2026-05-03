@@ -1,12 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { UsersThree, UserCircle, Sparkle, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { UsersThree, UserCircle, Sparkle, CaretDown, CaretUp, ArrowsLeftRight, X } from "@phosphor-icons/react";
 import Image from "next/image";
 import { Suspense, useState, useEffect, useRef } from "react";
 import { useHTStore } from "@/stores/htStore";
 import { useSearchParams } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
+import { MODEL_REGISTRY, DEFAULT_DELIBERATION_MODEL, type ModelId } from "@/lib/models";
 
 const EXPERTS = [
   { id: "coach",  name: "Coach Mike",  avatar: "/avatars/coach.png",        role: "Treino & Performance"    },
@@ -57,10 +58,41 @@ function RoundTableInner() {
 
   const activeProfileId = useHTStore((s) => s.activeProfileId);
   const profiles = useHTStore((s) => s.profiles);
+  const updateProfile = useHTStore((s) => s.updateProfile);
   const profile = profiles[activeProfileId || ""];
   const stack = profile?.trainingStack;
+  const selectedModel = (profile?.preferredModel as ModelId) || DEFAULT_DELIBERATION_MODEL;
   const deliberations = useHTStore((s) => s.deliberations);
   const setDeliberations = useHTStore((s) => s.setDeliberations);
+
+  const [diffData, setDiffData] = useState<{ content: string; loading: boolean; currentId: string; previousId: string } | null>(null);
+
+  const handleCompare = async (currentDelib: any) => {
+    // Find the previous completed deliberation (one that has a synthesis message)
+    const completed = deliberations.filter(
+      (d: any) => d.id !== currentDelib.id && d.messages?.some((m: any) => !m.isCascade && m.role === 'assistant')
+    );
+    if (completed.length === 0) return;
+    const previousDelib = completed[0]; // most recent previous (already sorted desc)
+
+    setDiffData({ content: '', loading: true, currentId: currentDelib.id, previousId: previousDelib.id });
+
+    try {
+      const res = await fetch('/api/deliberations/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentId: currentDelib.id, previousId: previousDelib.id, model: selectedModel }),
+      });
+      const data = await res.json();
+      if (data.diff) {
+        setDiffData(prev => prev ? { ...prev, content: data.diff, loading: false } : null);
+      } else {
+        setDiffData(prev => prev ? { ...prev, content: data.error || 'Erro ao comparar', loading: false } : null);
+      }
+    } catch (err: any) {
+      setDiffData(prev => prev ? { ...prev, content: `Erro: ${err.message}`, loading: false } : null);
+    }
+  };
 
   const fetchDeliberations = () => {
     if (activeProfileId) {
@@ -103,6 +135,7 @@ function RoundTableInner() {
   };
 
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const isSubmittingRef = useRef(false);
 
   // Countdown timer for rate limit retry
   useEffect(() => {
@@ -112,7 +145,8 @@ function RoundTableInner() {
   }, [retryCountdown]);
 
   const runDeliberation = async (t: string) => {
-    if (!t.trim() || !activeProfileId) return;
+    if (!t.trim() || !activeProfileId || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     // Create deliberation record first
     let delibId = deliberationId;
@@ -145,6 +179,7 @@ function RoundTableInner() {
           profileName: profile?.name,
           stack,
           deliberationId: delibId,
+          model: selectedModel,
         }),
         signal: abortRef.current.signal,
       });
@@ -197,6 +232,8 @@ function RoundTableInner() {
       if (err.name !== 'AbortError') {
         setState(s => ({ ...s, phase: 'error', error: err.message }));
       }
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
@@ -246,6 +283,26 @@ function RoundTableInner() {
           {!started ? (
             /* ─── INPUT SCREEN ─── */
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
+
+              {/* Review Banner */}
+              {(() => {
+                const dueForReview = deliberations.find(
+                  (d: any) => d.nextReviewAt && new Date(d.nextReviewAt) <= new Date()
+                );
+                return dueForReview ? (
+                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                    <p className="text-sm font-bold text-amber-800 dark:text-amber-400 mb-1">
+                      Hora de reavaliar
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-500 leading-relaxed">
+                      Seu protocolo de {new Date(dueForReview.createdAt).toLocaleDateString('pt-BR')} completou 4 semanas.
+                      Convoque o Conselho novamente para atualizar seu protocolo.
+                    </p>
+                  </motion.div>
+                ) : null;
+              })()}
+
               <div className="text-center space-y-4 pt-6">
                 <div className="inline-flex p-5 rounded-[2rem] bg-health-500/10 border border-health-500/20">
                   <UsersThree weight="duotone" className="w-12 h-12 text-health-600" />
@@ -263,8 +320,17 @@ function RoundTableInner() {
                   className="w-full liquid-glass rounded-2xl md:rounded-[2rem] p-4 md:p-6 pb-18 md:pb-20 outline-none text-sm text-zinc-900 dark:text-zinc-100 border-2 border-transparent focus:border-health-500/30 transition-all shadow-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-500 resize-none"
                 />
                 <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-3">
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => activeProfileId && updateProfile(activeProfileId, { preferredModel: e.target.value })}
+                    className="hidden md:block text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-xl px-2.5 py-2 border border-zinc-200 dark:border-zinc-700 outline-none cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+                  >
+                    {Object.entries(MODEL_REGISTRY).map(([id, info]) => (
+                      <option key={id} value={id}>{info.label}</option>
+                    ))}
+                  </select>
                   <span className="hidden md:inline text-[10px] text-zinc-300 dark:text-zinc-600">⌘↵</span>
-                  <button onClick={() => runDeliberation(topic)} disabled={!topic.trim()}
+                  <button onClick={() => runDeliberation(topic)} disabled={!topic.trim() || state.phase !== 'idle'}
                     className="h-12 px-7 rounded-2xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center gap-2">
                     <Sparkle weight="fill" className="w-4 h-4" /> Convocar Conselho
                   </button>
@@ -275,30 +341,44 @@ function RoundTableInner() {
                 <div className="pt-8 border-t border-zinc-200/70 dark:border-white/5">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-5">Consultas Anteriores</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {deliberations.map((d: any) => {
+                    {deliberations.map((d: any, dIdx: number) => {
                       const hasSaved = d.messages?.some((m: any) => !m.isCascade && m.role === 'assistant');
+                      // Can compare if this has a synthesis AND there's at least one other completed deliberation
+                      const canCompare = hasSaved && deliberations.some(
+                        (other: any) => other.id !== d.id && other.messages?.some((m: any) => !m.isCascade && m.role === 'assistant')
+                      );
                       return (
-                        <button key={d.id}
-                          onClick={() => hasSaved ? loadPastDeliberation(d) : setTopic(d.topic)}
-                          className="p-5 liquid-glass rounded-2xl text-left hover:shadow-md transition-all">
-                          <p className="text-xs font-medium mb-3 line-clamp-2 text-zinc-600 dark:text-zinc-400 leading-relaxed">{d.topic}</p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex -space-x-1.5">
-                              {EXPERTS.map(e => (
-                                <div key={e.id} className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 overflow-hidden relative">
-                                  <Image src={e.avatar} alt={e.name} fill className="object-cover" />
-                                </div>
-                              ))}
+                        <div key={d.id} className="p-5 liquid-glass rounded-2xl text-left hover:shadow-md transition-all">
+                          <button
+                            onClick={() => hasSaved ? loadPastDeliberation(d) : setTopic(d.topic)}
+                            className="w-full text-left">
+                            <p className="text-xs font-medium mb-3 line-clamp-2 text-zinc-600 dark:text-zinc-400 leading-relaxed">{d.topic}</p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex -space-x-1.5">
+                                {EXPERTS.map(e => (
+                                  <div key={e.id} className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 overflow-hidden relative">
+                                    <Image src={e.avatar} alt={e.name} fill className="object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {hasSaved
+                                  ? <span className="text-[9px] font-bold text-health-600 bg-health-50 dark:bg-health-900/20 px-2 py-0.5 rounded-full">Ver protocolo →</span>
+                                  : <span className="text-[9px] text-zinc-400">Rascunho</span>
+                                }
+                                <span className="text-[10px] text-zinc-400">{new Date(d.createdAt).toLocaleDateString('pt-BR')}</span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {hasSaved
-                                ? <span className="text-[9px] font-bold text-health-600 bg-health-50 dark:bg-health-900/20 px-2 py-0.5 rounded-full">Ver protocolo →</span>
-                                : <span className="text-[9px] text-zinc-400">Rascunho</span>
-                              }
-                              <span className="text-[10px] text-zinc-400">{new Date(d.createdAt).toLocaleDateString('pt-BR')}</span>
-                            </div>
-                          </div>
-                        </button>
+                          </button>
+                          {canCompare && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCompare(d); }}
+                              className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-500 dark:text-zinc-400 hover:border-health-400 hover:text-health-600 dark:hover:text-health-400 transition-colors"
+                            >
+                              <ArrowsLeftRight className="w-3 h-3" /> Comparar com anterior
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
 
@@ -466,6 +546,47 @@ function RoundTableInner() {
           )}
         </div>
       </div>
+
+      {/* Diff Modal */}
+      <AnimatePresence>
+        {diffData && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setDiffData(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <ArrowsLeftRight className="w-4 h-4 text-health-500" />
+                  <span className="text-sm font-bold">Comparativo de Protocolos</span>
+                </div>
+                <button onClick={() => setDiffData(null)} className="p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                  <X className="w-4 h-4 text-zinc-400" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                {diffData.loading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-6 h-6 border-2 border-health-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs text-zinc-400">Analisando diferenças entre protocolos...</p>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <MarkdownRenderer content={diffData.content} />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -100,7 +100,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
     
     if (!id) {
-      return NextResponse.json({ error: 'Missing Id' }, { status: 400 });
+      return NextResponse.json({ error: 'ID não informado' }, { status: 400 });
     }
 
     await prisma.profile.delete({

@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const specialist = searchParams.get('specialist');
 
   if (!profileId || !specialist) {
-    return NextResponse.json({ error: 'Missing profileId or specialist' }, { status: 400 });
+    return NextResponse.json({ error: 'Perfil ou especialista não informado' }, { status: 400 });
   }
 
   const conversation = await prisma.conversation.findUnique({

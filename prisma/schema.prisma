@@ -52,11 +52,12 @@ model Conversation {
 }
 
 model Deliberation {
-  id        String    @id @default(cuid())
-  topic     String
-  profileId String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  topic        String
+  profileId    String
+  nextReviewAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
   messages  Message[]

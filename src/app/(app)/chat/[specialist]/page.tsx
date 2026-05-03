@@ -20,9 +20,9 @@ interface SpecInfo {
 }
 
 const SPECS_INFO: Record<Specialist, SpecInfo> = {
-  trainer: { name: "Coach Mike", role: "Specialist in Athletic Performance", icon: Barbell, avatar: "/avatars/coach.png", quicks: ["Pulei o treino", "Treinei mais leve", "Sinto dor no ombro", "Mudar o treino de amanhã"] },
-  nutritionist: { name: "Dra. Sarah", role: "Clinical Dietetics & Performance", icon: AppleLogo, avatar: "/avatars/nutritionist.png", quicks: ["Saí da dieta", "Comi em restaurante", "Sem fome pós-treino", "Dúvida sobre suplemento"] },
-  endocrinologist: { name: "Dr. Evans", role: "Endocrinology & Recovery", icon: Stethoscope, avatar: "/avatars/endocrinologist.png", quicks: ["Glicemia alta", "Sentindo fadiga excessiva", "Cortisol desregulado", "Renovar exames"] },
+  trainer: { name: "Coach Mike", role: "Treino & Performance Atlética", icon: Barbell, avatar: "/avatars/coach.png", quicks: ["Pulei o treino", "Treinei mais leve", "Sinto dor no ombro", "Mudar o treino de amanhã"] },
+  nutritionist: { name: "Dra. Sarah", role: "Nutrição Clínica & Esportiva", icon: AppleLogo, avatar: "/avatars/nutritionist.png", quicks: ["Saí da dieta", "Comi em restaurante", "Sem fome pós-treino", "Dúvida sobre suplemento"] },
+  endocrinologist: { name: "Dr. Evans", role: "Endocrinologia & Recuperação", icon: Stethoscope, avatar: "/avatars/endocrinologist.png", quicks: ["Glicemia alta", "Sentindo fadiga excessiva", "Cortisol desregulado", "Renovar exames"] },
 };
 
 // Helper to extract text from UIMessage parts
@@ -47,8 +47,8 @@ export default function ChatScreen() {
   const profile = profiles[activeProfileId || ""];
 
   // Use refs for dynamic body values so transport stays stable
-  const bodyRef = useRef({ specialist: specialistKey, stack: profile?.trainingStack, profileId: activeProfileId });
-  bodyRef.current = { specialist: specialistKey, stack: profile?.trainingStack, profileId: activeProfileId };
+  const bodyRef = useRef({ specialist: specialistKey, stack: profile?.trainingStack, profileId: activeProfileId, model: profile?.preferredModel });
+  bodyRef.current = { specialist: specialistKey, stack: profile?.trainingStack, profileId: activeProfileId, model: profile?.preferredModel };
 
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/chat',
@@ -108,7 +108,7 @@ export default function ChatScreen() {
     sendMessage({ text });
   };
 
-  if (!info) return <div>Invalid Specialist</div>;
+  if (!info) return <div>Especialista inválido</div>;
 
   return (
     <div className="flex flex-col h-full w-full relative">
@@ -218,7 +218,8 @@ export default function ChatScreen() {
               <button
                 key={idx}
                 onClick={() => handleQuickAction(q)}
-                className="snap-start shrink-0 px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-health-400 hover:text-health-600 dark:hover:text-health-400 transition-colors whitespace-nowrap shadow-sm active:scale-95"
+                disabled={isChatLoading}
+                className="snap-start shrink-0 px-4 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-health-400 hover:text-health-600 dark:hover:text-health-400 transition-colors whitespace-nowrap shadow-sm active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
               >
                 {q}
               </button>
@@ -237,7 +238,7 @@ export default function ChatScreen() {
             <button
               type="submit"
               className="absolute right-1.5 md:right-2 w-11 h-11 md:w-12 md:h-12 bg-health-500 text-white rounded-full flex items-center justify-center hover:bg-health-400 active:scale-90 transition-all shadow-md disabled:opacity-50"
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isChatLoading}
             >
               <PaperPlaneRight weight="fill" className="w-5 h-5" />
             </button>

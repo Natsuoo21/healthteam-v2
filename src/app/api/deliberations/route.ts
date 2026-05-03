@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const { profileId, topic } = await req.json();
     
     if (!profileId || !topic) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Campos obrigatórios não informados" }, { status: 400 });
     }
 
     const deliberation = await prisma.deliberation.create({
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     return NextResponse.json(deliberation);
   } catch (error) {
     console.error("Error creating deliberation:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }
 
@@ -46,6 +46,6 @@ export async function GET(req: Request) {
     return NextResponse.json(deliberations);
   } catch (error) {
     console.error("Error fetching deliberations:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
 }

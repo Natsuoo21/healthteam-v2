@@ -8,15 +8,18 @@ services:
     environment:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
       - DATABASE_URL=file:/app/data/dev.db
     volumes:
       - ./data/db:/app/data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
-  # O Watchtower vigia as imagens do GitHub e atualiza sozinho o healthteam
+  # Watchtower monitora via label — nao depende de nome do container
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 120 --cleanup healthteam-web
+    command: --interval 120 --cleanup --label-enable
     restart: always

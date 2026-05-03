@@ -1,7 +1,8 @@
-import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { prisma } from "@/lib/prisma";
 import { getSystemPrompt } from "@/lib/prompts";
+import { checkRateLimit } from '@/lib/rate-limit';
+import { getModel, DEFAULT_CHAT_MODEL, type ModelId } from '@/lib/models';
 
 export const maxDuration = 60;
 
@@ -20,10 +21,20 @@ function cacheSet(key: string, value: string) {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, specialist, stack, profileId, deliberationId, isCascade } = body;
+  const { messages, specialist, stack, profileId, deliberationId, isCascade, model } = body;
+  const modelId = (model as ModelId) || DEFAULT_CHAT_MODEL;
 
   if (!profileId) {
-    return new Response("Profile ID is required", { status: 400 });
+    return new Response("ID do perfil é obrigatório", { status: 400 });
+  }
+
+  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const { allowed, retryAfterMs } = checkRateLimit(`chat:${ip}`, 2_000);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'RATE_LIMIT', retryAfterMs }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+    });
   }
 
   // Helper to extract content resilient to SDK v6 formats (content, text, parts)
@@ -118,7 +129,7 @@ ${synthesis.content.slice(0, 6000)}
 
   // Start stream immediately — DB write happens concurrently in background
   const streamResult = streamText({
-    model: openai('gpt-4o-mini'),
+    model: getModel(modelId),
     system: systemPrompt,
     messages: modelMessages,
     temperature: 0.4,

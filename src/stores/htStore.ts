@@ -35,6 +35,7 @@ export interface Deliberation {
   id: string;
   topic: string;
   createdAt: string;
+  nextReviewAt?: string | null;
   messages: DeliberationMessage[];
 }
 
@@ -43,6 +44,7 @@ export interface UserProfile {
   name: string;
   avatarUrl: string;
   trainingStack?: TrainingStack;
+  preferredModel?: string;
 }
 
 interface HTStore {

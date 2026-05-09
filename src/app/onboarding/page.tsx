@@ -8,7 +8,7 @@ import { useHTStore } from "@/stores/htStore";
 
 // Form steps definition
 const STEPS = [
-  { id: 1, title: "Foco Principal", description: "O que vamos transformar no seu corpo?" },
+  { id: 1, title: "Foco & Contexto", description: "Escolha seu objetivo e conte sua história." },
   { id: 2, title: "Training Stack", description: "Quais esportes compõem a sua rotina?" },
   { id: 3, title: "Parametrização", description: "Ajuste fino matemático do seu corpo para as IAs." },
 ];
@@ -129,28 +129,44 @@ export default function Onboarding() {
               </h2>
 
               {step === 1 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <GoalCard
-                    icon={<Barbell weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
-                    title="Força & Hipertrofia"
-                    desc="Ganho de massa magra, Powerlifting ou Fisiculturismo."
-                    selected={goal === "hypertrophy"}
-                    onClick={() => setGoal("hypertrophy")}
-                  />
-                  <GoalCard
-                    icon={<Heartbeat weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
-                    title="Condicionamento"
-                    desc="Gás para lutas, CrossFit ou aumento de VO2 Máx."
-                    selected={goal === "conditioning"}
-                    onClick={() => setGoal("conditioning")}
-                  />
-                  <GoalCard
-                    icon={<PersonSimpleWalk weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
-                    title="Recomposição"
-                    desc="Perder gordura sem sacrificar todo o músculo no processo."
-                    selected={goal === "recomp"}
-                    onClick={() => setGoal("recomp")}
-                  />
+                <div className="flex flex-col gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <GoalCard
+                      icon={<Barbell weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
+                      title="Força & Hipertrofia"
+                      desc="Ganho de massa magra, Powerlifting ou Fisiculturismo."
+                      selected={goal === "hypertrophy"}
+                      onClick={() => setGoal("hypertrophy")}
+                    />
+                    <GoalCard
+                      icon={<Heartbeat weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
+                      title="Condicionamento"
+                      desc="Gás para lutas, CrossFit ou aumento de VO2 Máx."
+                      selected={goal === "conditioning"}
+                      onClick={() => setGoal("conditioning")}
+                    />
+                    <GoalCard
+                      icon={<PersonSimpleWalk weight="duotone" className="w-8 h-8 text-health-600 dark:text-health-400" />}
+                      title="Recomposição"
+                      desc="Perder gordura sem sacrificar todo o músculo no processo."
+                      selected={goal === "recomp"}
+                      onClick={() => setGoal("recomp")}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Conte sua situação
+                    </label>
+                    <textarea
+                      value={trainingContext}
+                      onChange={(e) => setTrainingContext(e.target.value)}
+                      rows={4}
+                      placeholder="Ex: Treino musculação 5x/semana há 3 anos, faço Muay Thai 2x, tenho diabetes tipo 1, quero competir em 6 meses mas trabalho sentado o dia inteiro..."
+                      className="w-full bg-white/50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/10 rounded-2xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400 resize-none"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-1.5">Quanto mais contexto, melhor os especialistas vão entender sua realidade.</p>
+                  </div>
                 </div>
               )}
 
@@ -196,19 +212,6 @@ export default function Onboarding() {
                       placeholder="Ex: 2.5"
                       className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400" />
                     <p className="text-[10px] text-zinc-400 mt-1.5">Quantos anos de treino consistente você tem?</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
-                      Sua Situação Atual (Opcional)
-                    </label>
-                    <textarea
-                      value={trainingContext}
-                      onChange={(e) => setTrainingContext(e.target.value)}
-                      rows={3}
-                      placeholder="Ex: Treino musculação 5x/semana há 3 anos, faço Muay Thai 2x, quero competir em 6 meses mas tenho pouco tempo livre..."
-                      className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400 resize-none"
-                    />
-                    <p className="text-[10px] text-zinc-400 mt-1.5">Quanto mais contexto, melhor os especialistas vão entender sua realidade.</p>
                   </div>
                 </div>
               )}

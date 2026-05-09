@@ -3,16 +3,44 @@ import { Specialist, TrainingStack } from "@/stores/htStore";
 /**
  * Utility to build rigid physiological context for the AI agents.
  */
+function getTrainingLevel(years?: number): string {
+  if (years == null) return "";
+  if (years < 1) return "Iniciante";
+  if (years <= 3) return "Intermediário";
+  return "Avançado";
+}
+
+function getGenderLabel(gender?: string): string {
+  if (!gender) return "";
+  if (gender === "male") return "Masculino";
+  if (gender === "female") return "Feminino";
+  return "Outro";
+}
+
 function buildUserContext(stack?: TrainingStack) {
   if (!stack) return "Usuário ainda não configurou a rotina de treino.";
-  return `
+
+  let context = `
 [CONTEXTO FISIOLÓGICO DO ATLETA]
 - Objetivo Principal: ${stack.goal}
 - Esporte Primário: ${stack.primary}
 - Esporte de Suporte: ${stack.secondary || "Nenhum"}
-- Altura: ${stack.height}cm | Peso: ${stack.weight}kg
-- Condições Clínicas / Observações: ${stack.conditions || "Nenhuma reportada."}${stack.trainingContext ? `\n- Situação Pessoal de Treino: ${stack.trainingContext}` : ""}
-`;
+- Altura: ${stack.height}cm | Peso: ${stack.weight}kg`;
+
+  if (stack.age) context += `\n- Idade: ${stack.age} anos`;
+  if (stack.gender) context += `\n- Sexo Biológico: ${getGenderLabel(stack.gender)}`;
+  if (stack.trainingYears != null) {
+    const level = getTrainingLevel(stack.trainingYears);
+    context += `\n- Nível de Treino: ${level} (${stack.trainingYears} anos de treino)`;
+  }
+  if (stack.bodyFatPct) context += `\n- BF: ${stack.bodyFatPct}%`;
+  if (stack.activityLevel) context += `\n- Nível de Atividade: ${stack.activityLevel}`;
+
+  context += `\n- Condições Clínicas / Observações: ${stack.conditions || "Nenhuma reportada."}`;
+  if (stack.trainingContext) context += `\n- Situação Pessoal de Treino: ${stack.trainingContext}`;
+  context += "\n";
+
+  return context;
 }
 
 /**

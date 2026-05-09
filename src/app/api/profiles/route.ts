@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(_req?: Request) {
   try {
     const profiles = await prisma.profile.findMany({
       include: {
@@ -24,6 +24,11 @@ export async function GET() {
           weight: p.trainingStack.weight,
           conditions: p.trainingStack.healthConditions || "",
           trainingContext: p.trainingStack.trainingContext || "",
+          age: p.trainingStack.age ?? undefined,
+          trainingYears: p.trainingStack.trainingYears ?? undefined,
+          gender: p.trainingStack.gender ?? undefined,
+          bodyFatPct: p.trainingStack.bodyFatPct ?? undefined,
+          activityLevel: p.trainingStack.activityLevel ?? undefined,
         } : undefined
       };
       return acc;
@@ -64,6 +69,11 @@ export async function POST(request: Request) {
           weight: trainingStack.weight,
           healthConditions: trainingStack.conditions,
           trainingContext: trainingStack.trainingContext || "",
+          age: trainingStack.age ?? null,
+          trainingYears: trainingStack.trainingYears ?? null,
+          gender: trainingStack.gender ?? null,
+          bodyFatPct: trainingStack.bodyFatPct ?? null,
+          activityLevel: trainingStack.activityLevel ?? null,
         },
         create: {
           profileId: profile.id,
@@ -74,6 +84,11 @@ export async function POST(request: Request) {
           weight: trainingStack.weight,
           healthConditions: trainingStack.conditions,
           trainingContext: trainingStack.trainingContext || "",
+          age: trainingStack.age ?? null,
+          trainingYears: trainingStack.trainingYears ?? null,
+          gender: trainingStack.gender ?? null,
+          bodyFatPct: trainingStack.bodyFatPct ?? null,
+          activityLevel: trainingStack.activityLevel ?? null,
         }
       });
 

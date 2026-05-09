@@ -23,6 +23,11 @@ export interface TrainingStack {
   weight: number;
   conditions: string;
   trainingContext?: string;
+  age?: number;
+  trainingYears?: number;
+  gender?: string;
+  bodyFatPct?: number;
+  activityLevel?: string;
 }
 
 export interface DeliberationMessage {
@@ -36,6 +41,7 @@ export interface Deliberation {
   topic: string;
   createdAt: string;
   nextReviewAt?: string | null;
+  notes?: string | null;
   messages: DeliberationMessage[];
 }
 

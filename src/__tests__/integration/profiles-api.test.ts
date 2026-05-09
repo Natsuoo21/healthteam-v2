@@ -35,7 +35,7 @@ describe('POST /api/profiles', () => {
         id: 'prof-1',
         name: 'João',
         avatarUrl: '/avatars/1.png',
-        trainingStack: { goal: 'hypertrophy', primary: 'Musculação', height: 180, weight: 85, conditions: '' },
+        trainingStack: { goal: 'hypertrophy', primary: 'Musculação', height: 180, weight: 85, conditions: '', age: 25, gender: 'male', trainingYears: 3, bodyFatPct: 15, activityLevel: 'active' },
       }),
     });
 
@@ -82,6 +82,29 @@ describe('GET /api/profiles', () => {
     const data = await res.json();
     expect(data.profiles).toBeDefined();
     expect(data.profiles['p1'].name).toBe('João');
+  });
+
+  it('maps new profile fields from trainingStack', async () => {
+    mockPrisma.profile.findMany.mockResolvedValue([
+      {
+        id: 'p2', name: 'Maria', avatarUrl: '/b.png',
+        trainingStack: {
+          goal: 'recomp', primarySport: 'CrossFit', secondarySport: null,
+          height: 165, weight: 60, healthConditions: '', trainingContext: '',
+          age: 28, trainingYears: 2.5, gender: 'female', bodyFatPct: 22, activityLevel: 'active',
+        },
+      },
+    ]);
+
+    const req = new Request('http://localhost/api/profiles');
+    const res = await GET(req);
+    const data = await res.json();
+    const stack = data.profiles['p2'].trainingStack;
+    expect(stack.age).toBe(28);
+    expect(stack.trainingYears).toBe(2.5);
+    expect(stack.gender).toBe('female');
+    expect(stack.bodyFatPct).toBe(22);
+    expect(stack.activityLevel).toBe('active');
   });
 });
 

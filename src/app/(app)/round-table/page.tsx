@@ -1,13 +1,15 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { UsersThree, UserCircle, Sparkle, CaretDown, CaretUp, ArrowsLeftRight, X } from "@phosphor-icons/react";
+import { UsersThree, UserCircle, Sparkle, CaretDown, CaretUp, ArrowsLeftRight, X, DownloadSimple, Trash, NotePencil, PaperPlaneRight, ChatCircle } from "@phosphor-icons/react";
 import Image from "next/image";
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useMemo } from "react";
 import { useHTStore } from "@/stores/htStore";
 import { useSearchParams } from "next/navigation";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { MODEL_REGISTRY, DEFAULT_DELIBERATION_MODEL, type ModelId } from "@/lib/models";
+import { DefaultChatTransport, type UIMessage } from 'ai';
+import { useChat } from '@ai-sdk/react';
 
 const EXPERTS = [
   { id: "coach",  name: "Coach Mike",  avatar: "/avatars/coach.png",        role: "Treino & Performance"    },
@@ -31,6 +33,25 @@ const GOAL_LABEL: Record<string, string> = {
   conditioning: "Condicionamento",
   recomp: "Recomposição Corporal",
 };
+
+function getMessageText(msg: UIMessage): string {
+  if (msg.parts && Array.isArray(msg.parts)) {
+    return msg.parts
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join('');
+  }
+  return '';
+}
+
+const FOLLOW_UP_QUICKS = [
+  "Ajustar volume de treino",
+  "Mudar exercício",
+  "Recalcular macros",
+  "Dia de descanso",
+  "Substituir suplemento",
+  "Adaptar para lesão",
+];
 
 export default function RoundTableScreen() {
   return (
@@ -66,6 +87,57 @@ function RoundTableInner() {
   const setDeliberations = useHTStore((s) => s.setDeliberations);
 
   const [diffData, setDiffData] = useState<{ content: string; loading: boolean; currentId: string; previousId: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesText, setNotesText] = useState("");
+
+  // ─── Follow-up Chat ───
+  const [followUpInput, setFollowUpInput] = useState("");
+  const followUpEndRef = useRef<HTMLDivElement>(null);
+
+  const followUpBodyRef = useRef({
+    profileId: activeProfileId,
+    stack,
+    profileName: profile?.name,
+    deliberationId: deliberationId as string | null,
+    model: selectedModel,
+  });
+  followUpBodyRef.current = {
+    profileId: activeProfileId,
+    stack,
+    profileName: profile?.name,
+    deliberationId,
+    model: selectedModel,
+  };
+
+  const followUpTransport = useMemo(() => new DefaultChatTransport({
+    api: '/api/round-table-chat',
+    body: () => followUpBodyRef.current,
+  }), []);
+
+  const {
+    messages: followUpMessages,
+    setMessages: setFollowUpMessages,
+    sendMessage: sendFollowUp,
+    status: followUpStatus,
+  } = useChat({ transport: followUpTransport });
+
+  const isFollowUpLoading = followUpStatus === 'submitted' || followUpStatus === 'streaming';
+
+  const handleSaveNotes = async (id: string) => {
+    // Optimistic update
+    setDeliberations(deliberations.map((d: any) => d.id === id ? { ...d, notes: notesText } : d));
+    setEditingNotesId(null);
+    try {
+      await fetch('/api/deliberations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, notes: notesText }),
+      });
+    } catch (e) {
+      console.error('Error saving notes:', e);
+    }
+  };
 
   const handleCompare = async (currentDelib: any) => {
     // Find the previous completed deliberation (one that has a synthesis message)
@@ -109,18 +181,68 @@ function RoundTableInner() {
     if (state.phase === 'synthesis') bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [state.synthesis, state.phase]);
 
+  // Auto-scroll follow-up chat
+  useEffect(() => {
+    followUpEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [followUpMessages.length, followUpStatus]);
+
   const buildAutoTopic = () => {
     if (!stack || !profile) return "";
-    return `Elabore o protocolo de performance inicial completo para ${profile.name}. Objetivo: ${GOAL_LABEL[stack.goal] || stack.goal}. Modalidade: ${stack.primary}${stack.secondary && stack.secondary !== "Nenhum" ? " + " + stack.secondary : ""}. Dados físicos: ${stack.height}cm / ${stack.weight}kg${stack.conditions ? `. Condições: ${stack.conditions}` : ""}.`;
+    let topic = `Elabore o protocolo de performance inicial completo para ${profile.name}.`;
+    topic += ` Objetivo: ${GOAL_LABEL[stack.goal] || stack.goal}.`;
+    topic += ` Modalidade: ${stack.primary}${stack.secondary && stack.secondary !== "Nenhum" ? " + " + stack.secondary : ""}.`;
+    topic += ` Dados físicos: ${stack.height}cm / ${stack.weight}kg`;
+    if (stack.age) topic += `, ${stack.age} anos`;
+    if (stack.gender) topic += `, ${stack.gender === 'male' ? 'masculino' : stack.gender === 'female' ? 'feminino' : 'outro'}`;
+    topic += '.';
+    if (stack.trainingYears != null) topic += ` ${stack.trainingYears} anos de treino.`;
+    if (stack.bodyFatPct) topic += ` BF: ${stack.bodyFatPct}%.`;
+    if (stack.conditions) topic += ` Condições: ${stack.conditions}.`;
+    return topic;
+  };
+
+  const handleDownloadProtocol = () => {
+    if (!state.synthesis) return;
+    const name = profile?.name?.replace(/\s+/g, '-') || 'atleta';
+    const date = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([state.synthesis], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `protocolo-${name}-${date}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteDeliberation = async (id: string) => {
+    const prev = deliberations;
+    setDeliberations(deliberations.filter((d: any) => d.id !== id));
+    setConfirmDeleteId(null);
+    try {
+      const res = await fetch(`/api/deliberations?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+    } catch {
+      setDeliberations(prev);
+    }
   };
 
   const loadPastDeliberation = (d: any) => {
     // Restore state from saved DB messages
     const msgs: any[] = d.messages || [];
-    const synthMsg = msgs.find((m: any) => m.role === 'assistant' && !m.isCascade);
-    const coachMsg = msgs.find((m: any) => m.isCascade && m.content?.startsWith('[COACH]'));
-    const nutriMsg = msgs.find((m: any) => m.isCascade && m.content?.startsWith('[NUTRI]'));
-    const endoMsg  = msgs.find((m: any) => m.isCascade && m.content?.startsWith('[ENDO]'));
+    const cascadeMsgs = msgs.filter((m: any) => m.isCascade);
+    const coachMsg = cascadeMsgs.find((m: any) => m.content?.startsWith('[COACH]'));
+    const nutriMsg = cascadeMsgs.find((m: any) => m.content?.startsWith('[NUTRI]'));
+    const endoMsg  = cascadeMsgs.find((m: any) => m.content?.startsWith('[ENDO]'));
+
+    // First non-cascade assistant message is the synthesis
+    const nonCascade = msgs.filter((m: any) => !m.isCascade);
+    const synthMsg = nonCascade.find((m: any) => m.role === 'assistant');
+
+    // Everything after the synthesis in non-cascade messages = follow-up thread
+    const synthIndex = synthMsg ? nonCascade.indexOf(synthMsg) : -1;
+    const followUps = synthIndex >= 0 ? nonCascade.slice(synthIndex + 1) : [];
 
     setState({
       phase: 'done',
@@ -132,6 +254,17 @@ function RoundTableInner() {
     setTopic(d.topic);
     setDeliberationId(d.id);
     setStarted(true);
+
+    // Restore follow-up messages
+    if (followUps.length > 0) {
+      setFollowUpMessages(followUps.map((m: any) => ({
+        id: m.id || crypto.randomUUID(),
+        role: m.role as 'user' | 'assistant',
+        parts: [{ type: 'text' as const, text: m.content }],
+      })));
+    } else {
+      setFollowUpMessages([]);
+    }
   };
 
   const [retryCountdown, setRetryCountdown] = useState(0);
@@ -165,6 +298,8 @@ function RoundTableInner() {
     setStarted(true);
     setRetryCountdown(0);
     setState({ phase: 'coach', coach: '', nutri: '', endo: '', synthesis: '' });
+    setFollowUpMessages([]);
+    setFollowUpInput('');
     window.history.replaceState({}, '', '/round-table');
 
     abortRef.current = new AbortController();
@@ -270,10 +405,16 @@ function RoundTableInner() {
           </div>
         </div>
         {started && state.phase === 'done' && (
-          <button onClick={() => { setStarted(false); setState({ phase:'idle', coach:'', nutri:'', endo:'', synthesis:'' }); setDeliberationId(null); setTopic(''); }}
-            className="text-xs text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition-colors flex items-center gap-1.5">
-            <Sparkle className="w-3.5 h-3.5" /> Nova consulta
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={handleDownloadProtocol}
+              className="text-xs text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition-colors flex items-center gap-1.5">
+              <DownloadSimple className="w-3.5 h-3.5" /> Download
+            </button>
+            <button onClick={() => { setStarted(false); setState({ phase:'idle', coach:'', nutri:'', endo:'', synthesis:'' }); setDeliberationId(null); setTopic(''); setFollowUpMessages([]); setFollowUpInput(''); }}
+              className="text-xs text-zinc-400 hover:text-zinc-900 dark:hover:text-white font-semibold transition-colors flex items-center gap-1.5">
+              <Sparkle className="w-3.5 h-3.5" /> Nova consulta
+            </button>
+          </div>
         )}
       </header>
 
@@ -348,11 +489,15 @@ function RoundTableInner() {
                         (other: any) => other.id !== d.id && other.messages?.some((m: any) => !m.isCascade && m.role === 'assistant')
                       );
                       return (
-                        <div key={d.id} className="p-5 liquid-glass rounded-2xl text-left hover:shadow-md transition-all">
+                        <div key={d.id} className="group relative p-5 liquid-glass rounded-2xl text-left hover:shadow-md transition-all">
                           <button
-                            onClick={() => hasSaved ? loadPastDeliberation(d) : setTopic(d.topic)}
-                            className="w-full text-left">
-                            <p className="text-xs font-medium mb-3 line-clamp-2 text-zinc-600 dark:text-zinc-400 leading-relaxed">{d.topic}</p>
+                            onClick={() => confirmDeleteId === d.id ? undefined : (hasSaved ? loadPastDeliberation(d) : setTopic(d.topic))}
+                            className="w-full text-left"
+                            disabled={confirmDeleteId === d.id}>
+                            <p className="text-xs font-medium mb-2 line-clamp-2 text-zinc-600 dark:text-zinc-400 leading-relaxed pr-12">{d.topic}</p>
+                            {d.notes && editingNotesId !== d.id && (
+                              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mb-2 line-clamp-1 italic">{d.notes}</p>
+                            )}
                             <div className="flex items-center justify-between">
                               <div className="flex -space-x-1.5">
                                 {EXPERTS.map(e => (
@@ -370,6 +515,45 @@ function RoundTableInner() {
                               </div>
                             </div>
                           </button>
+                          {/* Inline notes editor */}
+                          {editingNotesId === d.id && (
+                            <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <textarea
+                                value={notesText}
+                                onChange={(e) => setNotesText(e.target.value)}
+                                placeholder="Adicionar notas pessoais..."
+                                rows={3}
+                                className="w-full text-xs bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-health-500/50 resize-none placeholder:text-zinc-400"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button onClick={() => setEditingNotesId(null)} className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 px-2 py-1">Cancelar</button>
+                                <button onClick={() => handleSaveNotes(d.id)} className="text-[10px] font-bold text-health-600 hover:text-health-700 bg-health-50 dark:bg-health-900/20 px-3 py-1 rounded-lg">Salvar</button>
+                              </div>
+                            </div>
+                          )}
+                          {/* Action buttons */}
+                          {confirmDeleteId === d.id ? (
+                            <div className="absolute top-3 right-3 flex items-center gap-2 bg-white dark:bg-zinc-800 rounded-xl px-2.5 py-1.5 shadow-lg border border-zinc-200 dark:border-zinc-700 z-10">
+                              <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Excluir?</span>
+                              <button onClick={() => handleDeleteDeliberation(d.id)} className="text-[10px] font-bold text-red-500 hover:text-red-600">Sim</button>
+                              <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600">Não</button>
+                            </div>
+                          ) : (
+                            <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingNotesId(d.id); setNotesText(d.notes || ''); }}
+                                className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-health-500 dark:hover:text-health-400 hover:bg-health-50 dark:hover:bg-health-900/20 transition-all"
+                              >
+                                <NotePencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(d.id); }}
+                                className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                              >
+                                <Trash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                           {canCompare && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleCompare(d); }}
@@ -507,6 +691,160 @@ function RoundTableInner() {
                         )}
                       </div>
                     </div>
+
+                    {/* Notes section in protocol view */}
+                    {state.phase === 'done' && deliberationId && (
+                      <div className="mt-6 p-4 md:p-6 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-200/50 dark:border-white/5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <NotePencil className="w-4 h-4 text-health-500" />
+                          <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">Notas Pessoais</span>
+                        </div>
+                        {editingNotesId === deliberationId ? (
+                          <div className="space-y-3">
+                            <textarea
+                              value={notesText}
+                              onChange={(e) => setNotesText(e.target.value)}
+                              placeholder="Adicionar notas pessoais sobre este protocolo..."
+                              rows={4}
+                              className="w-full text-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-health-500/50 resize-none placeholder:text-zinc-400"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => setEditingNotesId(null)} className="text-xs font-medium text-zinc-400 hover:text-zinc-600 px-3 py-1.5">Cancelar</button>
+                              <button onClick={() => handleSaveNotes(deliberationId)} className="text-xs font-bold text-white bg-health-500 hover:bg-health-600 px-4 py-1.5 rounded-xl transition-colors">Salvar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {(() => {
+                              const currentDelib = deliberations.find((d: any) => d.id === deliberationId);
+                              return currentDelib?.notes ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">{currentDelib.notes}</p>
+                                  <button onClick={() => { setEditingNotesId(deliberationId); setNotesText(currentDelib.notes || ''); }}
+                                    className="text-[11px] font-semibold text-health-600 hover:text-health-700 dark:text-health-400 transition-colors">Editar notas</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { setEditingNotesId(deliberationId); setNotesText(''); }}
+                                  className="text-sm text-zinc-400 hover:text-health-600 dark:hover:text-health-400 transition-colors">
+                                  + Adicionar notas sobre este protocolo
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ─── Follow-up Chat ─── */}
+                    {state.phase === 'done' && (
+                      <div className="mt-8">
+                        {/* Divider */}
+                        <div className="flex items-center gap-3 mb-6">
+                          <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                          <div className="flex items-center gap-2 text-zinc-400">
+                            <ChatCircle weight="duotone" className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Perguntas ao Conselho</span>
+                          </div>
+                          <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+                        </div>
+
+                        {/* Follow-up thread */}
+                        <div className="space-y-4 mb-4">
+                          {followUpMessages.map((msg) => {
+                            const isUser = msg.role === 'user';
+                            const text = getMessageText(msg);
+                            return (
+                              <motion.div
+                                key={msg.id}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}
+                              >
+                                {!isUser && (
+                                  <div className="flex -space-x-1.5 shrink-0 mr-2 mt-1">
+                                    {EXPERTS.map(e => (
+                                      <div key={e.id} className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 overflow-hidden relative">
+                                        <Image src={e.avatar} alt={e.name} fill className="object-cover" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className={`max-w-[82%] md:max-w-[70%] px-4 py-3 text-sm leading-relaxed rounded-3xl ${
+                                  isUser
+                                    ? 'bg-health-500 text-white rounded-br-sm shadow-md'
+                                    : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-white/5 text-zinc-800 dark:text-zinc-100 rounded-bl-sm'
+                                }`}>
+                                  {isUser ? text : <MarkdownRenderer content={text} />}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+
+                          {/* Typing indicator */}
+                          {followUpStatus === 'submitted' && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                              className="flex justify-start items-center gap-2">
+                              <div className="flex -space-x-1.5 shrink-0">
+                                {EXPERTS.map(e => (
+                                  <div key={e.id} className="w-5 h-5 rounded-full border-2 border-white dark:border-zinc-900 overflow-hidden relative">
+                                    <Image src={e.avatar} alt={e.name} fill className="object-cover opacity-80" />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex gap-1.5 px-4 py-3 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/50 dark:border-white/5">
+                                {[0, 1, 2].map(i => (
+                                  <motion.div key={i} className="w-1.5 h-1.5 rounded-full bg-health-500"
+                                    animate={{ y: [0, -3, 0] }}
+                                    transition={{ repeat: Infinity, duration: 0.7, delay: i * 0.15 }} />
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-1">
+                          {FOLLOW_UP_QUICKS.map((q, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => { if (!isFollowUpLoading) sendFollowUp({ text: q }); }}
+                              disabled={isFollowUpLoading}
+                              className="shrink-0 px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:border-health-400 hover:text-health-600 dark:hover:text-health-400 transition-colors whitespace-nowrap shadow-sm active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Input */}
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!followUpInput.trim() || isFollowUpLoading) return;
+                            sendFollowUp({ text: followUpInput });
+                            setFollowUpInput('');
+                          }}
+                          className="relative flex items-center w-full"
+                        >
+                          <input
+                            value={followUpInput}
+                            onChange={(e) => setFollowUpInput(e.target.value)}
+                            placeholder="Pergunte ao Conselho..."
+                            enterKeyHint="send"
+                            className="w-full liquid-glass rounded-full px-5 py-3.5 pr-14 outline-none text-sm text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-health-500/50 transition-shadow placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                          />
+                          <button
+                            type="submit"
+                            className="absolute right-1.5 w-11 h-11 bg-health-500 text-white rounded-full flex items-center justify-center hover:bg-health-400 active:scale-90 transition-all shadow-md disabled:opacity-50"
+                            disabled={!followUpInput.trim() || isFollowUpLoading}
+                          >
+                            <PaperPlaneRight weight="fill" className="w-5 h-5" />
+                          </button>
+                        </form>
+
+                        <div ref={followUpEndRef} className="h-2" />
+                      </div>
+                    )}
                   </motion.div>
                 )}
 

@@ -20,6 +20,7 @@ model Profile {
   trainingStack TrainingStack?
   conversations Conversation[]
   deliberations Deliberation[]
+  weightLogs    WeightLog[]
 }
 
 model TrainingStack {
@@ -32,6 +33,11 @@ model TrainingStack {
   weight          Float
   healthConditions String?
   trainingContext  String?  // Free-text personal training situation
+  age              Int?
+  trainingYears    Float?
+  gender           String?   // 'male', 'female', 'other'
+  bodyFatPct       Float?
+  activityLevel    String?   // e.g., 'sedentary', 'light', 'moderate', 'active', 'very_active'
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -56,11 +62,22 @@ model Deliberation {
   topic        String
   profileId    String
   nextReviewAt DateTime?
+  notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
   messages  Message[]
+}
+
+model WeightLog {
+  id        String   @id @default(cuid())
+  profileId String
+  weight    Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
 model Message {

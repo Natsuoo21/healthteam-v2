@@ -27,12 +27,18 @@ export default function Onboarding() {
   const [height, setHeight] = useState(180);
   const [weight, setWeight] = useState(85.5);
   const [trainingContext, setTrainingContext] = useState("");
+  const [trainingYears, setTrainingYears] = useState<number | "">(2);
   const [conditions, setConditions] = useState("");
+  const [age, setAge] = useState<number | "">(25);
+  const [gender, setGender] = useState("male");
+  const [bodyFatPct, setBodyFatPct] = useState<number | "">("");
+  const [activityLevel, setActivityLevel] = useState("");
 
   const handleNext = async () => {
     if (step < 3) {
       setStep((p) => p + 1);
     } else {
+      if (!age || !gender) return; // basic validation
       if (activeProfileId) {
         const stackData = {
            goal: goal,
@@ -42,6 +48,11 @@ export default function Onboarding() {
            weight: weight,
            conditions: conditions,
            trainingContext: trainingContext,
+           age: age || undefined,
+           trainingYears: trainingYears || undefined,
+           gender: gender || undefined,
+           bodyFatPct: bodyFatPct || undefined,
+           activityLevel: activityLevel || undefined,
         };
         // Save to Zustand Memory
         updateTrainingStack(activeProfileId, stackData);
@@ -179,6 +190,15 @@ export default function Onboarding() {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Tempo de Treino (Anos)
+                    </label>
+                    <input type="number" inputMode="decimal" step="0.5" min="0" value={trainingYears} onChange={(e) => setTrainingYears(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="Ex: 2.5"
+                      className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400" />
+                    <p className="text-[10px] text-zinc-400 mt-1.5">Quantos anos de treino consistente você tem?</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
                       Sua Situação Atual (Opcional)
                     </label>
                     <textarea
@@ -195,6 +215,27 @@ export default function Onboarding() {
 
               {step === 3 && (
                 <div className="liquid-glass p-5 md:p-8 rounded-2xl md:rounded-[2rem] grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
+                  {/* Row 1: Age + Gender */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Idade
+                    </label>
+                    <input type="number" inputMode="numeric" min="10" max="100" value={age} onChange={(e) => setAge(e.target.value === "" ? "" : Number(e.target.value))} placeholder="25" className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Sexo Biológico
+                    </label>
+                    <div className="relative">
+                      <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-health-500/50 appearance-none">
+                        <option value="male">Masculino</option>
+                        <option value="female">Feminino</option>
+                        <option value="other">Outro</option>
+                      </select>
+                      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">▾</div>
+                    </div>
+                  </div>
+                  {/* Row 2: Height + Weight */}
                   <div>
                     <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
                       Altura (CM)
@@ -207,6 +248,30 @@ export default function Onboarding() {
                     </label>
                     <input type="number" inputMode="decimal" step="0.1" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50" />
                   </div>
+                  {/* Row 3: BF% + Activity Level (optional) */}
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Gordura Corporal % <span className="text-zinc-400 font-normal normal-case">(opcional)</span>
+                    </label>
+                    <input type="number" inputMode="decimal" step="0.1" min="3" max="60" value={bodyFatPct} onChange={(e) => setBodyFatPct(e.target.value === "" ? "" : Number(e.target.value))} placeholder="Ex: 15" className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-health-500/50 placeholder:text-zinc-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
+                      Nível de Atividade <span className="text-zinc-400 font-normal normal-case">(opcional)</span>
+                    </label>
+                    <div className="relative">
+                      <select value={activityLevel} onChange={(e) => setActivityLevel(e.target.value)} className="w-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl px-4 py-3.5 pr-10 text-sm outline-none focus:ring-2 focus:ring-health-500/50 appearance-none">
+                        <option value="">Não informar</option>
+                        <option value="sedentary">Sedentário (pouco ou nenhum exercício)</option>
+                        <option value="light">Leve (1-3x/semana)</option>
+                        <option value="moderate">Moderado (3-5x/semana)</option>
+                        <option value="active">Ativo (6-7x/semana)</option>
+                        <option value="very_active">Muito Ativo (2x/dia ou trabalho físico)</option>
+                      </select>
+                      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400">▾</div>
+                    </div>
+                  </div>
+                  {/* Row 4: Conditions */}
                   <div className="sm:col-span-2">
                     <label className="text-xs font-bold text-zinc-500 tracking-[0.1em] uppercase mb-2 block">
                       Condições de Saúde Relevantes

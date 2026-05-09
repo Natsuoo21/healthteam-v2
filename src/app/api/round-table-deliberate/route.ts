@@ -3,44 +3,62 @@ import { prisma } from '@/lib/prisma';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { REVIEW_CYCLE_DAYS } from '@/lib/constants';
 import { withFallback, DEFAULT_DELIBERATION_MODEL, type ModelId } from '@/lib/models';
-import { parsePhase1 } from '@/lib/deliberation-parser';
 import { buildContext } from '@/lib/deliberation-context';
+import { composeCoachPrompt } from '@/lib/skills/coach';
 
 export const maxDuration = 120;
 
-// ─── Phase 1 Prompt: Coach Mike + Dra. Sarah ────────────────────────────────────
+// ─── Phase 1a Prompt: Coach Mike (standalone, skill-based) ──────────────────────
 
-function coachNutriPrompt(stack: any, profileName: string) {
+function coachPrompt(stack: any, profileName: string) {
+  const composed = composeCoachPrompt(stack);
+
+  return `Voce e o Coach Mike — Especialista Senior em Performance Atletica, Periodizacao e Biomecanica.
+Referencias metodologicas: Mike Israetel (RP), Eric Helms, Greg Nuckols (SBS), Andy Galpin, Phil Daru (UFC), Chad Wesley Smith (JTS), Joe DeFranco.
+
+MISSAO: Elaborar o protocolo de treino COMPLETO e PRONTO PARA USO para o atleta descrito abaixo.
+
+${composed.text}
+
+INSTRUCOES DE OUTPUT:
+- Use TABELAS MARKDOWN para fichas de treino — OBRIGATORIO.
+- Liste a divisao semanal (ex: Upper/Lower, Push/Pull/Legs, Full Body).
+- Para CADA dia de treino, inclua tabela: Exercicio | Series | Reps | Descanso | RPE/RIR
+- Inclua protocolo de aquecimento por dia.
+- Inclua trabalho acessorio e prehab.
+- Defina criterios de progressao de carga CONCRETOS.
+- Prescreva protocolo de deload.
+- Ao FINAL, inclua uma secao:
+  ## Resumo para Nutricionista
+  - Volume semanal total (series efetivas por grupo muscular)
+  - Demanda energetica estimada do protocolo (kcal de treino)
+  - Dias de maior/menor intensidade (para carb-cycling)
+  - Frequencia e duracao das sessoes
+
+REGRAS:
+- Portugues (BR). Tecnico, especifico, com numeros reais.
+- NUNCA diga "consulte um profissional". Voce E o profissional.
+- Referencie diretrizes (ACSM, NSCA, ISSN) quando relevante.
+
+CONTEXTO DO ATLETA:
+${buildContext(stack, profileName)}`;
+}
+
+// ─── Phase 1b Prompt: Dra. Sarah (receives Coach output) ────────────────────────
+
+function nutriPrompt(stack: any, profileName: string, coachOutput: string) {
   const hasDM1 = /diabet|dm1|tipo 1|type 1/i.test(stack?.conditions || "");
 
-  return `Voce e o sistema de deliberacao do HealthTeam. Dois especialistas vao redigir seus relatorios de forma independente e rigorosa, como se cada um escrevesse seu proprio documento clinico.
+  return `Voce e a Dra. Sarah — Nutricionista Clinica e Esportiva, Especialista em Particionamento de Nutrientes e Metabolismo.
 
-IMPORTANTE: Cada especialista escreve SEU relatorio completo. Nao e um dialogo — sao dois documentos tecnicos separados.
+MISSAO: Criar o plano nutricional COMPLETO e PRONTO PARA USO, alinhado com o protocolo de treino do Coach Mike abaixo.
 
-Se houver conflito entre volume de treino e capacidade de recuperacao em deficit calorico, resolva explicitamente: o Coach pode reduzir volume em 15-20% para acomodar o deficit, OU a Nutricionista pode aumentar calorias peri-treino para suportar o volume. Justifique a decisao tomada.
+--- PROTOCOLO DE TREINO (COACH MIKE) ---
+${coachOutput}
+---
 
-BLOCO 1 — COACH MIKE (Treino & Performance):
-Escreva como Coach Mike — especialista senior em periodizacao, biomecanica e performance atletica.
-
-- Especifique o modelo de periodizacao escolhido (linear, ondulada diaria, ondulada semanal, ou blocos) e JUSTIFIQUE a escolha com base no nivel e objetivo do atleta.
-- Adapte ao nivel: Iniciante (<1 ano) → linear, 10-14 series/grupo. Intermediario (1-3 anos) → ondulada, 14-20. Avancado (3+) → blocos/DUP, 20+. Se nivel nao claro, assuma intermediario.
-- Liste a divisao semanal (ex: ABCDE, Upper/Lower, Push/Pull/Legs).
-- Para CADA dia de treino, use uma TABELA MARKDOWN com colunas: Exercicio | Series | Reps | Descanso | RPE/RIR
-- Inclua protocolo de aquecimento: 5-10 min cardio leve (60-65% FCmax) + mobilidade articular especifica + 1-2 series de ativacao a 40-60% carga.
-- Inclua trabalho acessorio e prehab.
-- Prescreva cardio/condicionamento conforme objetivo:
-  - Hipertrofia/recomp: LISS 3-4x, 30-40 min, zona 2.
-  - Luta/MMA: HIIT 2-3x (6x30s sprint/90s rec) + LISS 2x. Posicionar longe de MMII pesado.
-  - Condicionamento: LISS zona 2 + 1-2 threshold zona 4.
-- Prescreva deload: a cada 3-5 semanas, reducao 40-50% volume, manter ~70% intensidade. Criterios antecipados: queda >10% por 2 sessoes, sono ruim 5+ dias, RPE >8 em cargas habituais.
-- Defina criterios de progressao de carga (ex: "Quando completar todas as series com RIR >= 2, aumentar 2.5kg").
-- Referencie diretrizes (ACSM, NSCA) quando relevante.
-- Ao final, resuma para a Nutricionista: volume semanal total (series efetivas por grupo muscular), demanda energetica estimada, e dias de maior/menor intensidade (para carb-cycling).
-
-BLOCO 2 — DRA. SARAH (Nutricao & Metabolismo):
-Escreva como Dra. Sarah — nutricionista clinica e esportiva, especialista em particionamento de nutrientes.
-
-- Leia o treino de Mike e CRIE O PLANO NUTRICIONAL COMPLETO E PRONTO PARA USO.
+INSTRUCOES:
+- Leia o treino acima e alinhe o plano nutricional com os dias/volumes reais.
 - Calcule TDEE (Mifflin-St Jeor + fator de atividade). Mostre a conta.
 - Defina macros em g/kg: proteina (1.6-2.2g/kg para hipertrofia — ISSN), carboidrato (high/moderate/low days), gordura.
 - Crie uma TABELA de refeicoes para dia de treino pesado (high carb) com: Refeicao | Horario | Alimentos | Quantidade (g) | Kcal | P | C | G
@@ -49,8 +67,9 @@ Escreva como Dra. Sarah — nutricionista clinica e esportiva, especialista em p
 - Suplementacao com doses especificas e nivel de evidencia (A/B/C): creatina 5g/dia (A), cafeina 3-6mg/kg (A), vitamina D 2000-5000 UI (B), omega-3 2-3g EPA+DHA (A).
 - Se houver restricoes alimentares no contexto, adapte integralmente com substituicoes especificas.
 - Liste o que Dr. Evans precisa monitorar metabolicamente.
+- Adapte preferencias e restricoes alimentares com equivalencia proteica.
 ${hasDM1 ? `
-ADAPTACAO DM1 OBRIGATORIA (Dra. Sarah):
+ADAPTACAO DM1 OBRIGATORIA:
 - Inclua carbs de seguranca (15-30g dextrose/maltodextrina) para treinos
 - Especifique ajuste de bolus pre-treino (reducao de 50%)
 - Evite recomendacoes de jejum intermitente sem protocolo de monitoramento
@@ -58,9 +77,9 @@ ADAPTACAO DM1 OBRIGATORIA (Dra. Sarah):
 ` : ""}
 REGRAS:
 - Portugues (BR). Tecnico, especifico, com numeros reais.
-- Use TABELAS MARKDOWN — e obrigatorio para treino e nutricao.
+- Use TABELAS MARKDOWN — obrigatorio para plano de refeicoes.
 - NUNCA diga "consulte um profissional". Voce E o profissional.
-- Use os headers EXATOS: "## COACH MIKE" e "## DRA. SARAH"
+- Referencie diretrizes (ISSN, ESPEN) quando relevante.
 
 CONTEXTO DO ATLETA:
 ${buildContext(stack, profileName)}`;
@@ -68,7 +87,7 @@ ${buildContext(stack, profileName)}`;
 
 // ─── Phase 2 Prompt: Dr. Evans Audit ────────────────────────────────────────────
 
-function evansAuditPrompt(stack: any, profileName: string, phase1Output: string) {
+function evansAuditPrompt(stack: any, profileName: string, coachOutput: string, nutriOutput: string) {
   const hasDM1 = /diabet|dm1|tipo 1|type 1/i.test(stack?.conditions || "");
 
   return `Voce e o Dr. Evans — Endocrinologista e Especialista em Recuperacao Sistemica, Otimizacao Hormonal e Medicina do Esporte.
@@ -117,9 +136,13 @@ REGRAS:
 CONTEXTO DO ATLETA:
 ${buildContext(stack, profileName)}
 
---- DELIBERACAO COACH MIKE + DRA. SARAH ---
-${phase1Output}
---------------------------------------------`;
+--- PROTOCOLO COACH MIKE ---
+${coachOutput}
+---
+
+--- PLANO NUTRICIONAL DRA. SARAH ---
+${nutriOutput}
+---`;
 }
 
 // ─── Phase 3 Prompt: Synthesis ──────────────────────────────────────────────────
@@ -220,36 +243,47 @@ export async function POST(req: Request) {
 
       try {
         // ──────────────────────────────────────────────────
-        // PHASE 1: Coach Mike + Dra. Sarah (generateText)
+        // PHASE 1a: Coach Mike (standalone, skill-based)
         // ──────────────────────────────────────────────────
         send({ phase: 'coach', status: 'thinking' });
-        send({ phase: 'nutri', status: 'thinking' });
 
-        const { text: phase1Text } = await withFallback(modelId, (m) => generateText({
+        const { text: coachText } = await withFallback(modelId, (m) => generateText({
           model: m,
-          system: coachNutriPrompt(stack, profileName),
-          prompt: `Elabore a deliberacao completa para este caso:\n\n${topic}`,
-          temperature: 0.45,
-          maxOutputTokens: 8192,
+          system: coachPrompt(stack, profileName),
+          prompt: `Elabore o protocolo de treino completo para este caso:\n\n${topic}`,
+          temperature: 0.3,
+          maxOutputTokens: 5000,
         }));
 
-        const parsed = parsePhase1(phase1Text);
-        coachContent = parsed.coach;
-        nutriContent = parsed.nutri;
-
+        coachContent = coachText.trim();
         send({ phase: 'coach', status: 'done', content: coachContent });
+
+        // ──────────────────────────────────────────────────
+        // PHASE 1b: Dra. Sarah (receives Coach output)
+        // ──────────────────────────────────────────────────
+        send({ phase: 'nutri', status: 'thinking' });
+
+        const { text: nutriText } = await withFallback(modelId, (m) => generateText({
+          model: m,
+          system: nutriPrompt(stack, profileName, coachContent),
+          prompt: `Elabore o plano nutricional completo alinhado ao protocolo de treino acima para:\n\n${topic}`,
+          temperature: 0.3,
+          maxOutputTokens: 4000,
+        }));
+
+        nutriContent = nutriText.trim();
         send({ phase: 'nutri', status: 'done', content: nutriContent });
 
         // ──────────────────────────────────────────────────
-        // PHASE 2: Dr. Evans Audit ONLY (generateText)
+        // PHASE 2: Dr. Evans Audit (receives both)
         // ──────────────────────────────────────────────────
         send({ phase: 'endo', status: 'thinking' });
 
         const { text: evansText } = await withFallback(modelId, (m) => generateText({
           model: m,
-          system: evansAuditPrompt(stack, profileName, phase1Text),
+          system: evansAuditPrompt(stack, profileName, coachContent, nutriContent),
           prompt: `Realize a auditoria endocrinologica e prescricao de recuperacao para:\n\n${topic}`,
-          temperature: 0.45,
+          temperature: 0.3,
           maxOutputTokens: 4096,
         }));
 
@@ -265,8 +299,8 @@ export async function POST(req: Request) {
           model: m,
           system: synthesisPrompt(stack, profileName, coachContent, nutriContent, evansContent),
           prompt: `Produza o Diagnostico Integrado e Monitoramento para:\n\n${topic}`,
-          temperature: 0.45,
-          maxOutputTokens: 3000,
+          temperature: 0.3,
+          maxOutputTokens: 2500,
         }));
 
         synthesisContent = synthText.trim();

@@ -137,7 +137,7 @@ ${synthesis.content.slice(0, 6000)}
     model: getModel(modelId),
     system: systemPrompt,
     messages: modelMessages,
-    temperature: 0.4,
+    temperature: specialist === 'trainer' ? 0.3 : 0.4,
     maxOutputTokens: 4096,
     onFinish: async ({ text }) => {
       await Promise.all([

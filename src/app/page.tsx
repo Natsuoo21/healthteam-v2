@@ -7,6 +7,16 @@ import { useRouter } from "next/navigation";
 import { useHTStore } from "@/stores/htStore";
 import { useEffect, useRef, useState } from "react";
 
+/** crypto.randomUUID() is unavailable over plain HTTP; this works everywhere. */
+function generateId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
@@ -63,7 +73,7 @@ export default function ProfileSelection() {
 
   const handleAdd = () => {
     if (!newName.trim()) return;
-    const id = crypto.randomUUID();
+    const id = generateId();
     const newProfile = {
       id, name: newName.trim(),
       avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(newName)}&backgroundColor=e5e7eb`

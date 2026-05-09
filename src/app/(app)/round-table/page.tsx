@@ -11,6 +11,16 @@ import { MODEL_REGISTRY, DEFAULT_DELIBERATION_MODEL, type ModelId } from "@/lib/
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useChat } from '@ai-sdk/react';
 
+/** crypto.randomUUID() is unavailable over plain HTTP; this works everywhere. */
+function generateId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
 const EXPERTS = [
   { id: "coach",  name: "Coach Mike",  avatar: "/avatars/coach.png",        role: "Treino & Performance"    },
   { id: "nutri",  name: "Dra. Sarah",  avatar: "/avatars/nutritionist.png",  role: "Nutrição & Metabolismo"  },
@@ -258,7 +268,7 @@ function RoundTableInner() {
     // Restore follow-up messages
     if (followUps.length > 0) {
       setFollowUpMessages(followUps.map((m: any) => ({
-        id: m.id || crypto.randomUUID(),
+        id: m.id || generateId(),
         role: m.role as 'user' | 'assistant',
         parts: [{ type: 'text' as const, text: m.content }],
       })));

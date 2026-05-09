@@ -34,8 +34,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Configura as permissoes do Prisma e diretorio de dados
-RUN mkdir -p /app/prisma /app/data && chown -R nextjs:nodejs /app/prisma /app/data
+# Configura as permissoes do Prisma, diretorio de dados e uploads
+RUN mkdir -p /app/prisma /app/data /app/data/uploads && chown -R nextjs:nodejs /app/prisma /app/data
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

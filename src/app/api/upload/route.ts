@@ -4,6 +4,13 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { prisma } from '@/lib/prisma';
 
+// Persistent upload directory — inside the volume-mounted /app/data/ in Docker
+const UPLOAD_DIR = process.env.UPLOAD_DIR || (
+  process.env.NODE_ENV === 'production'
+    ? '/app/data/uploads'
+    : join(process.cwd(), 'data', 'uploads')
+);
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -32,19 +39,19 @@ export async function POST(request: Request) {
     }
 
     const ext = file.type.split('/')[1].replace('jpeg', 'jpg');
-    const filename = `profile-${profileId}.${ext}`;
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
+    const filename = `profile-${safeProfileId}.${ext}`;
 
     // Ensure uploads directory exists
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+    if (!existsSync(UPLOAD_DIR)) {
+      await mkdir(UPLOAD_DIR, { recursive: true });
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(join(uploadDir, filename), buffer);
+    await writeFile(join(UPLOAD_DIR, filename), buffer);
 
-    const avatarUrl = `/uploads/${filename}`;
+    // URL served by /api/uploads/[filename] route handler
+    const avatarUrl = `/api/uploads/${filename}`;
 
     // Update in Prisma
     await prisma.profile.update({

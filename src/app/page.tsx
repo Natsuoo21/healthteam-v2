@@ -165,7 +165,7 @@ export default function ProfileSelection() {
                     </div>
                   )}
                   <Image src={profile.avatarUrl} alt={profile.name} fill
-                    unoptimized={profile.avatarUrl.startsWith('/uploads/')}
+                    unoptimized={profile.avatarUrl.startsWith('/uploads/') || profile.avatarUrl.startsWith('/api/uploads/')}
                     className="object-cover mix-blend-multiply dark:mix-blend-normal"
                   />
                 </button>

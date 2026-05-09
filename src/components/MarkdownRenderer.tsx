@@ -12,13 +12,22 @@ export const markdownComponents = {
   h4: ({ children }: { children?: React.ReactNode }) => <h4 className="text-sm font-bold text-zinc-800 dark:text-zinc-100 mb-2 mt-4">{children}</h4>,
   p: ({ children }: { children?: React.ReactNode }) => <p className="text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed mb-4 last:mb-0">{children}</p>,
   ul: ({ children }: { children?: React.ReactNode }) => <ul className="space-y-2 mb-4">{children}</ul>,
-  ol: ({ children }: { children?: React.ReactNode }) => <ol className="space-y-2 mb-4 list-decimal list-inside">{children}</ol>,
-  li: ({ children }: { children?: React.ReactNode }) => (
-    <li className="text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed flex gap-2.5">
-      <span className="text-health-500 shrink-0 mt-0.5 font-bold">›</span>
-      <span className="flex-1">{children}</span>
-    </li>
-  ),
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="space-y-2 mb-4 list-decimal pl-5 marker:text-health-500 marker:font-bold">{children}</ol>,
+  li: ({ children, ordered }: { children?: React.ReactNode; ordered?: boolean }) => {
+    if (ordered) {
+      return (
+        <li className="text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed pl-1">
+          {children}
+        </li>
+      );
+    }
+    return (
+      <li className="text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed flex gap-2.5">
+        <span className="text-health-500 shrink-0 mt-0.5 font-bold">›</span>
+        <span className="flex-1">{children}</span>
+      </li>
+    );
+  },
   strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-bold text-zinc-900 dark:text-white">{children}</strong>,
   em: ({ children }: { children?: React.ReactNode }) => <em className="italic text-zinc-600 dark:text-zinc-300">{children}</em>,
   hr: () => <div className="my-6 md:my-8 flex items-center gap-4"><div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" /><div className="w-1.5 h-1.5 rounded-full bg-health-500/50" /><div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700" /></div>,

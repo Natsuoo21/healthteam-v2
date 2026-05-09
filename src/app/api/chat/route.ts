@@ -19,6 +19,11 @@ function cacheSet(key: string, value: string) {
   conversationCache.set(key, value);
 }
 
+/** Invalidate a cached conversation ID (e.g. after conversation deletion) */
+export function cacheInvalidate(profileId: string, specialist: string) {
+  conversationCache.delete(`${profileId}-${specialist}`);
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const { messages, specialist, stack, profileId, deliberationId, isCascade, model } = body;

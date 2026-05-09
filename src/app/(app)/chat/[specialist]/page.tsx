@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PaperPlaneRight, Barbell, AppleLogo, Stethoscope, Lightning, ArrowSquareOut } from "@phosphor-icons/react";
+import { PaperPlaneRight, Barbell, AppleLogo, Stethoscope, Lightning, ArrowSquareOut, DownloadSimple, Trash } from "@phosphor-icons/react";
 
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useChat } from '@ai-sdk/react';
@@ -45,6 +45,8 @@ export default function ChatScreen() {
   const activeProfileId = useHTStore((s) => s.activeProfileId);
   const profiles = useHTStore((s) => s.profiles);
   const profile = profiles[activeProfileId || ""];
+  const deliberations = useHTStore((s) => s.deliberations);
+  const hasProtocol = deliberations.some((d: any) => d.messages?.some((m: any) => !m.isCascade && m.role === 'assistant'));
 
   // Use refs for dynamic body values so transport stays stable
   const bodyRef = useRef({ specialist: specialistKey, stack: profile?.trainingStack, profileId: activeProfileId, model: profile?.preferredModel });
@@ -59,6 +61,36 @@ export default function ChatScreen() {
 
   const isChatLoading = status === 'submitted' || status === 'streaming';
   const [inputValue, setInputValue] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const handleExportChat = () => {
+    const name = profile?.name?.replace(/\s+/g, '-') || 'atleta';
+    const date = new Date().toISOString().slice(0, 10);
+    const md = messages.map((msg) => {
+      const role = msg.role === 'user' ? 'Você' : info.name;
+      return `### ${role}\n\n${getMessageText(msg)}`;
+    }).join('\n\n---\n\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${specialistKey}-${name}-${date}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClearChat = async () => {
+    try {
+      await fetch(`/api/chat/history?profileId=${activeProfileId}&specialist=${specialistKey}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Error clearing chat:', e);
+    }
+    const firstName = profile?.name?.split(' ')[0] || 'atleta';
+    setMessages([{ id: 'welcome-1', role: 'assistant' as const, parts: [{ type: 'text' as const, text: `Olá ${firstName}! Preparado? O que temos para a pauta de hoje?` }] }]);
+    setShowClearConfirm(false);
+  };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,13 +146,64 @@ export default function ChatScreen() {
     <div className="flex flex-col h-full w-full relative">
 
       {/* Top Header - Mobile */}
-      <header className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-zinc-200/50 dark:border-white/5 bg-white/90 dark:bg-zinc-900/90 z-20">
-        <div className="w-8 h-8 rounded-full overflow-hidden relative shrink-0 border border-zinc-200/50 dark:border-white/10">
-          <Image src={info.avatar} alt={info.name} fill className="object-cover" />
+      <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-200/50 dark:border-white/5 bg-white/90 dark:bg-zinc-900/90 z-20">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full overflow-hidden relative shrink-0 border border-zinc-200/50 dark:border-white/10">
+            <Image src={info.avatar} alt={info.name} fill className="object-cover" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-sm leading-tight">{info.name}</h2>
+            <p className="text-[10px] text-zinc-400">{info.role}</p>
+          </div>
         </div>
-        <div>
-          <h2 className="font-semibold text-sm leading-tight">{info.name}</h2>
-          <p className="text-[10px] text-zinc-400">{info.role}</p>
+        <div className="flex items-center gap-1">
+          <button onClick={handleExportChat} title="Exportar conversa"
+            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <DownloadSimple className="w-4 h-4" weight="bold" />
+          </button>
+          {showClearConfirm ? (
+            <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-800 rounded-xl px-2.5 py-1.5 shadow-lg border border-zinc-200 dark:border-zinc-700">
+              <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Limpar?</span>
+              <button onClick={handleClearChat} className="text-[10px] font-bold text-red-500 hover:text-red-600">Sim</button>
+              <button onClick={() => setShowClearConfirm(false)} className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600">Não</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowClearConfirm(true)} title="Limpar conversa"
+              className="p-2 rounded-xl text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              <Trash className="w-4 h-4" weight="bold" />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Top Header - Desktop */}
+      <header className="hidden md:flex items-center justify-between px-6 py-3 border-b border-zinc-200/50 dark:border-white/5 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl z-20">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full overflow-hidden relative shrink-0 border border-zinc-200/50 dark:border-white/10">
+            <Image src={info.avatar} alt={info.name} fill className="object-cover" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-sm leading-tight">{info.name}</h2>
+            <p className="text-[10px] text-zinc-400">{info.role}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExportChat}
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 font-semibold transition-colors px-3 py-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <DownloadSimple className="w-3.5 h-3.5" /> Exportar
+          </button>
+          {showClearConfirm ? (
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 rounded-xl px-3 py-2 shadow-lg border border-zinc-200 dark:border-zinc-700">
+              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Limpar conversa?</span>
+              <button onClick={handleClearChat} className="text-xs font-bold text-red-500 hover:text-red-600">Sim</button>
+              <button onClick={() => setShowClearConfirm(false)} className="text-xs font-bold text-zinc-400 hover:text-zinc-600">Não</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowClearConfirm(true)}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-500 dark:hover:text-red-400 font-semibold transition-colors px-3 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20">
+              <Trash className="w-3.5 h-3.5" /> Limpar
+            </button>
+          )}
         </div>
       </header>
 
@@ -180,11 +263,19 @@ export default function ChatScreen() {
 
                   {/* Magic button on first AI message */}
                   {!isUser && i === 0 && messages.length === 1 && (
-                    <button onClick={() => handleQuickAction("Analise meu perfil na sua memória e monte o meu Planejamento Completo agora!")}
-                      className="mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-health-400 to-health-600 text-white w-full py-3 px-4 rounded-xl shadow-lg border border-health-300 font-medium text-sm active:scale-95 transition-all"
-                    >
-                      <Lightning weight="fill" className="w-4 h-4 text-white" /> Gerar Ficha Completa
-                    </button>
+                    hasProtocol ? (
+                      <button onClick={() => handleQuickAction("Analise meu perfil na sua memória e monte o meu Planejamento Completo agora!")}
+                        className="mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-health-400 to-health-600 text-white w-full py-3 px-4 rounded-xl shadow-lg border border-health-300 font-medium text-sm active:scale-95 transition-all"
+                      >
+                        <Lightning weight="fill" className="w-4 h-4 text-white" /> Gerar Ficha Completa
+                      </button>
+                    ) : (
+                      <button onClick={() => router.push('/round-table')}
+                        className="mt-2 flex items-center justify-center gap-2 bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 w-full py-3 px-4 rounded-xl font-medium text-sm transition-all hover:bg-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        <ArrowSquareOut className="w-4 h-4" /> Vá à Mesa Redonda primeiro
+                      </button>
+                    )
                   )}
                 </div>
               </motion.div>

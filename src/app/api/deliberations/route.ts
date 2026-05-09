@@ -23,6 +23,45 @@ export async function POST(req: Request) {
   }
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: "ID não informado" }, { status: 400 });
+    }
+
+    await prisma.message.deleteMany({ where: { deliberationId: id } });
+    await prisma.deliberation.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting deliberation:", error);
+    return NextResponse.json({ error: "Erro ao excluir deliberação" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const { id, notes } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ error: "ID não informado" }, { status: 400 });
+    }
+
+    await prisma.deliberation.update({
+      where: { id },
+      data: { notes },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error updating deliberation notes:", error);
+    return NextResponse.json({ error: "Erro ao salvar notas" }, { status: 500 });
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const profileId = searchParams.get('profileId');
